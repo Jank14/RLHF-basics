@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Advantages and logprobs</title>
+<style>
+:root{--teal:#0E7C7B;--teal-lt:#DCEEED;--coral:#D2491F;--coral-lt:#FBE4DC;--purple:#6C4AB6;--purple-lt:#EAE3F7;--amber:#A86C10;--amber-lt:#FDF1D6;--blue:#2B5C9E;--blue-lt:#E1EAF6;--ink:#1A1A1A;--muted:#4F5A63;--line:#C9D0D5;--bg:#F2F4F5;--code:#1E1E2E;--grey:#8A949C;--card:#fff;--page:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ink:#ECEFF2;--muted:#AEB7BF;--line:#3B4650;--bg:#1F2830;--card:#182029;--page:#11181F;--teal-lt:#123B3B;--coral-lt:#47231A;--purple-lt:#2C2343;--amber-lt:#3D2E12;--blue-lt:#1B2D45;color-scheme:dark}}
+:root[data-theme="dark"]{--ink:#ECEFF2;--muted:#AEB7BF;--line:#3B4650;--bg:#1F2830;--card:#182029;--page:#11181F;--teal-lt:#123B3B;--coral-lt:#47231A;--purple-lt:#2C2343;--amber-lt:#3D2E12;--blue-lt:#1B2D45;color-scheme:dark}
+*{box-sizing:border-box}
+html{font-size:21px}
+@media (min-width:1700px){html{font-size:24px}}
+@media (max-width:900px){html{font-size:16px}}
+body{font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif;margin:0;background:var(--page);color:var(--ink);line-height:1.35}
+.wrap{max-width:1800px;margin:0 auto;padding:20px 32px 40px}
+@media (max-width:700px){.wrap{padding:14px 16px 30px}}
+.kicker{font-size:.78rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+h1{font-size:1.9rem;margin:.1em 0 .1em}
+h2{font-size:1.25rem;margin:.2em 0 .4em}
+.sub{color:var(--muted);font-size:1.02rem;margin:0 0 .6rem}
+.tabs{display:flex;flex-wrap:wrap;gap:10px;margin:.4rem 0 1rem;align-items:center}
+.tabs button{font:inherit;font-size:.95rem;font-weight:700;padding:.42rem .9rem;border-radius:12px;border:2px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.tabs button.on{background:var(--teal);border-color:var(--teal);color:#fff}
+section.tab{display:none}section.tab.on{display:block}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:24px;align-items:start}
+@media (max-width:1100px){.grid{grid-template-columns:1fr}}
+.grid.wide{grid-template-columns:minmax(0,2fr) minmax(300px,1fr)}
+@media (max-width:1100px){.grid.wide{grid-template-columns:1fr}}
+table.t.compact{font-size:.82rem;border-spacing:3px}table.t.compact td{min-width:1.8em;padding:.25em .35em}table.t.compact .tok{font-size:.82rem;padding:.12em .3em;margin:0}
+.stage{border:2px solid var(--line);border-radius:16px;padding:14px;background:var(--card);min-width:0}
+.panel{border-radius:16px;padding:14px 16px;background:var(--bg);min-width:0}
+.btn{font:inherit;font-size:.92rem;font-weight:700;padding:.45rem .85rem;border-radius:10px;border:2px solid var(--teal);background:var(--teal);color:#fff;cursor:pointer;margin:2px 4px 2px 0}
+.btn.ghost{background:transparent;color:var(--teal)}
+.btn.coral{background:var(--coral);border-color:var(--coral)}
+.btn.purple{background:var(--purple);border-color:var(--purple)}
+.btn:disabled{opacity:.4;cursor:default}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+label.ctl{display:flex;gap:10px;align-items:center;font-weight:700;font-size:.92rem;margin:6px 0;flex-wrap:wrap}
+input[type=range]{width:220px;accent-color:var(--teal)}
+.tok{display:inline-flex;align-items:center;justify-content:center;min-width:1.6em;padding:.18em .45em;border:2px solid var(--line);border-radius:8px;background:var(--card);font-size:.95rem;white-space:pre;margin:2px}
+.tok.pre{background:var(--bg)}
+.tok.gen{background:var(--teal-lt);border-color:var(--teal)}
+.tok.new{background:var(--coral);border-color:var(--coral);color:#fff}
+.mono{font-family:Consolas,"Courier New",monospace}
+code,.code{font-family:Consolas,"Courier New",monospace;font-size:.9em}
+pre.code{background:var(--code);color:#E6E6EF;border-radius:12px;padding:12px 14px;overflow-x:auto;font-size:.85rem;line-height:1.4;margin:.5em 0}
+pre.code .hl{color:#FFD479;font-weight:700}pre.code .cm{color:#8E9AAF}
+.placards{display:flex;flex-direction:column;gap:10px}
+.plc{border-radius:12px;padding:10px 14px;background:var(--card);border:2px solid var(--line);display:none}
+.plc.show{display:block}
+.plc.cur{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-lt)}
+.plc h3{margin:0 0 .25em;font-size:1.02rem;color:var(--teal)}
+.plc p{margin:.2em 0;font-size:.95rem}
+.stepnav{display:flex;gap:8px;align-items:center;margin:8px 0 4px}
+.stepnav .cnt{color:var(--muted);font-size:.85rem;font-weight:700}
+.big{font-size:1.6rem;font-weight:800}
+.muted{color:var(--muted)}
+.pill{display:inline-block;padding:.12em .6em;border-radius:999px;font-size:.8rem;font-weight:700;background:var(--teal-lt);color:var(--teal)}
+.pill.coral{background:var(--coral-lt);color:var(--coral)}.pill.amber{background:var(--amber-lt);color:var(--amber)}.pill.purple{background:var(--purple-lt);color:var(--purple)}
+table.t{border-collapse:separate;border-spacing:4px;font-size:.92rem}
+table.t th{background:#14202B;color:#fff;padding:.3em .55em;border-radius:6px;font-weight:700;text-align:center}
+table.t td{padding:.3em .55em;border-radius:6px;background:var(--bg);text-align:center;min-width:2.6em}
+table.t td.lbl{font-weight:700;text-align:left;background:transparent}
+.scroll{overflow-x:auto;max-width:100%}
+svg text{font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif}
+.note{font-size:.85rem;color:var(--muted);margin-top:.5em}
+.kbd{display:inline-block;border:1.5px solid var(--line);border-radius:5px;padding:0 .35em;font-size:.8rem;font-weight:700}
+.themebtn{position:fixed;top:10px;right:12px;font:inherit;font-size:.8rem;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:.2em .6em;cursor:pointer}
+
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="kicker">TARA · RLHF · demo 02</div>
+  <h1>Slicing values and log-probs</h1>
+  <p class="sub">One sample: prompt <b>"This is"</b> (<code>prefix_len = 3</code> with the BOS token) + 5 generated tokens. Every off-by-one in the notebook lives on this page.</p>
+  <div class="tabs"><button data-tab="t1" class="on">1 · compute_advantages</button><button data-tab="t2">2 · get_logprobs</button></div>
+
+  <section class="tab on" id="t1">
+    <div class="grid wide">
+      <div class="stage">
+        <div class="scroll"><svg id="adv" viewBox="0 0 980 560" style="width:100%;min-width:640px;display:block"></svg></div>
+        <div class="row">
+          <label class="ctl">final reward r (normalised) <input type="range" id="rew" min="-2" max="2" step="0.1" value="1.2"><span id="rewv">1.2</span></label>
+          <button class="btn ghost" id="rand">Random values</button>
+          <button class="btn ghost" id="reset1">Reset</button>
+        </div>
+        <p class="note">Drag a value cell up/down (or click it and use ↑ ↓) to change the critic's forecast at that position.</p>
+      </div>
+      <div class="panel" id="p1">
+        <div class="placards">
+          <div class="plc"><h3>1 · One value per position</h3><p><code>values</code> has shape <b>(batch, seq_len)</b>: the value head runs on every position. <code>values[i]</code> = forecast of the final reward after reading tokens 0…i.</p></div>
+          <div class="plc"><h3>2 · Which values are "before an action"?</h3><p>The first action is token 3 (" a"). The state before it ends at position 2. So the zero-step values are <code>values[:, prefix_len-1 : -1]</code> = positions 2…6.</p></div>
+          <div class="plc"><h3>3 · Which are "after an action"?</h3><p>After each action the forecast is the next value: positions 3…6, <code>values[:, prefix_len : -1]</code>. The last action has no next forecast: glue on the <b>real reward</b>.</p><pre class="code">one_step_q_est = t.cat(
+  [values[:, prefix_len:-1], rewards[:, None]], dim=-1)</pre></div>
+          <div class="plc"><h3>4 · Subtract</h3><p><code>advantages = one_step_q_est - zero_step_value_est</code>: shape <b>(batch, gen_len)</b>, one per generated token. A token that raised the forecast gets a positive advantage.</p></div>
+          <div class="plc"><h3>5 · They telescope</h3><p>Adding them up, every middle value cancels: <b>Σ A = r − V(prompt)</b>. The whole surprise is shared out to the tokens where the forecast moved. Change r: only the <b>last</b> advantage changes.</p></div>
+          <div class="plc"><h3>6 · Never used: the last value</h3><p><code>values[:, -1]</code> (after the final token) is never used: we have the real reward there instead.</p><p><code>returns = advantages + values[:, -gen_len-1:-1]</code> = the one-step row: the critic is trained to predict its own next forecast, and r at the end.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab" id="t2">
+    <div class="grid wide">
+      <div class="stage">
+        <div class="scroll"><svg id="lp" viewBox="0 0 980 470" style="width:100%;min-width:640px;display:block"></svg></div>
+        <div class="row"><label class="ctl">prefix_len <input type="range" id="pl" min="1" max="4" step="1" value="3"><span id="plv">3</span></label></div>
+        <p class="note">Toy log-prob numbers. The pattern of the slicing is exactly the notebook's.</p>
+      </div>
+      <div class="panel" id="p2">
+        <div class="placards">
+          <div class="plc"><h3>1 · A logit predicts the NEXT token</h3><p>The model's output at position i is its guess for token <b>i+1</b>. So the log-prob of token 4 (" list") is read from the output at position 3.</p></div>
+          <div class="plc"><h3>2 · Skip what the model didn't choose</h3><p>The prompt was given, not chosen. The first generated token is at position <code>prefix_len</code>, so we start reading outputs at <code>prefix_len - 1</code>:</p><pre class="code">logits = logits[:, prefix_len - 1:]
+tokens = tokens[:, prefix_len - 1:]</pre></div>
+          <div class="plc"><h3>3 · Gather the chosen token's log-prob</h3><p>For each kept position s, take <code>logprobs[b, s, tokens[b, s+1]]</code>. The very last output has no s+1, so it drops out.</p><pre class="code">eindex(logprobs, tokens, "b s [b s+1]")
+# → (batch, gen_len)</pre></div>
+          <div class="plc"><h3>4 · Same positions: gen_len_slice</h3><p>The trainer slices logits, values and ref_logits with <code>slice(-gen_len-1, -1)</code>. Those are <b>the same positions</b> highlighted here: the outputs that predict generated tokens.</p></div>
+          <div class="plc"><h3>5 · Try another prefix_len</h3><p>Move the slider. <code>prefix_len = 1</code> (or <code>None</code>) keeps every prediction: shape (batch, seq_len − 1).</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+<script>
+// shared helpers: tabs, placards with keyboard, theme toggle
+function $(s, r) { return (r || document).querySelector(s); }
+function $$(s, r) { return Array.from((r || document).querySelectorAll(s)); }
+function el(tag, attrs, html) { const e = document.createElement(tag); if (attrs) for (const k in attrs) { if (k === 'class') e.className = attrs[k]; else if (k === 'style') e.style.cssText = attrs[k]; else e.setAttribute(k, attrs[k]); } if (html != null) e.innerHTML = html; return e; }
+const SVGNS = 'http://www.w3.org/2000/svg';
+function sv(tag, attrs, text) { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; }
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function setupTabs(onChange) {
+  const btns = $$('.tabs button[data-tab]');
+  btns.forEach((b) => b.addEventListener('click', () => {
+    btns.forEach((x) => x.classList.toggle('on', x === b));
+    $$('section.tab').forEach((s) => s.classList.toggle('on', s.id === b.dataset.tab));
+    if (onChange) onChange(b.dataset.tab);
+  }));
+}
+// placards: container with .plc children; shows first n; returns controller
+function placards(root, onStep) {
+  const cards = $$('.plc', root);
+  const nav = el('div', { class: 'stepnav' });
+  const back = el('button', { class: 'btn ghost' }, '◀ Back');
+  const next = el('button', { class: 'btn' }, 'Next ▶');
+  const cnt = el('span', { class: 'cnt' });
+  nav.append(back, next, cnt);
+  root.prepend(nav);
+  let n = 1;
+  function render() {
+    cards.forEach((c, i) => { c.classList.toggle('show', i < n); c.classList.toggle('cur', i === n - 1); });
+    cnt.textContent = n + ' / ' + cards.length + '   (← → keys)';
+    back.disabled = n <= 1; next.disabled = n >= cards.length;
+    if (onStep) onStep(n);
+  }
+  back.onclick = () => { if (n > 1) { n--; render(); } };
+  next.onclick = () => { if (n < cards.length) { n++; render(); } };
+  render();
+  return { go(k) { n = Math.max(1, Math.min(cards.length, k)); render(); }, get n() { return n; }, root, next: () => next.onclick(), back: () => back.onclick() };
+}
+function keyNav(getCtl) {
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    const c = getCtl(); if (!c) return;
+    if (e.key === 'ArrowRight') { c.next(); e.preventDefault(); }
+    if (e.key === 'ArrowLeft') { c.back(); e.preventDefault(); }
+  });
+}
+function themeToggle() {
+  const b = el('button', { class: 'themebtn', title: 'Light / dark' }, '◐ theme');
+  b.onclick = () => {
+    const r = document.documentElement;
+    const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    r.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('tara-theme', r.dataset.theme); } catch (e) { }
+    window.dispatchEvent(new Event('themechange'));
+  };
+  try { const t = localStorage.getItem('tara-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) { }
+  document.body.append(b);
+}
+function fmt(x, d) { d = d == null ? 2 : d; const s = (Math.abs(x) < 0.005 && d <= 2) ? (0).toFixed(d) : x.toFixed(d); return (x > 0.0049 ? '+' : '') + s; }
+function rng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
+
+</script>
+<script>
+const TOK = ['<|endoftext|>', 'This', ' is', ' a', ' list', ' of', ' the', ' page'];
+const V0 = [0.1, 0.1, 0.1, 0.1, 0.4, 0.4, 0.9, 0.7];
+let vals = V0.slice(), rew = 1.2, step1 = 1, step2 = 1, sel = -1;
+const PL = 3, N = TOK.length, GEN = N - PL;
+function box(svg, x, y, w, h, fill, stroke, text, opts) {
+  opts = opts || {};
+  svg.append(sv('rect', { x, y, width: w, height: h, rx: 7, fill, stroke: stroke || 'none', 'stroke-width': stroke ? 2.5 : 0, opacity: opts.op == null ? 1 : opts.op }));
+  if (text != null) svg.append(sv('text', { x: x + w / 2, y: y + h / 2 + 6, 'text-anchor': 'middle', 'font-size': (opts.fs || 17) + 3, 'font-weight': opts.bold ? 700 : 400, fill: opts.color || css('--ink'), opacity: opts.op == null ? 1 : opts.op }, text));
+}
+function label(svg, x, y, t, color, fs) { svg.append(sv('text', { x, y, 'font-size': (fs || 16) + 3, 'font-weight': 700, fill: color || css('--muted') }, t)); }
+function drawAdv() {
+  const svg = $('#adv'); svg.innerHTML = '';
+  const X0 = 190, CW = 96, teal = css('--teal'), coral = css('--coral'), purple = css('--purple'), bg = css('--bg'), card = css('--card'), line = css('--line'), tl = css('--teal-lt'), cl = css('--coral-lt'), pl = css('--purple-lt');
+  const cx = (i) => X0 + i * CW;
+  label(svg, 10, 40, 'position'); label(svg, 10, 82, 'token');
+  for (let i = 0; i < N; i++) {
+    svg.append(sv('text', { x: cx(i) + CW / 2 - 4, y: 40, 'text-anchor': 'middle', 'font-size': 18, fill: css('--muted') }, String(i)));
+    box(svg, cx(i), 58, CW - 8, 38, i < PL ? bg : tl, i < PL ? line : teal, TOK[i].replace('<|endoftext|>', 'BOS'), { fs: 16 });
+  }
+  // values row
+  label(svg, 10, 150, 'values');
+  for (let i = 0; i < N; i++) {
+    const inB = step1 >= 2 && i >= PL - 1 && i <= N - 2, inA = step1 >= 3 && i >= PL && i <= N - 2;
+    const unused = step1 >= 6 && i === N - 1;
+    box(svg, cx(i), 124, CW - 8, 40, inA ? cl : inB ? pl : card, sel === i ? css('--ink') : inA ? coral : inB ? purple : line, vals[i].toFixed(1), { bold: true, op: unused ? 0.35 : 1 });
+  }
+  svg.querySelectorAll('rect').forEach(() => { });
+  // hit areas for dragging values
+  for (let i = 0; i < N; i++) {
+    const hit = sv('rect', { x: cx(i), y: 124, width: CW - 8, height: 40, fill: 'transparent', style: 'cursor:ns-resize', 'data-i': i });
+    svg.append(hit);
+  }
+  if (step1 >= 6) label(svg, cx(N - 1) - 4, 186, 'never used', coral, 14);
+  // zero-step row
+  if (step1 >= 2) {
+    label(svg, 10, 252, 'V before', purple); label(svg, 10, 272, '[prefix_len-1 : -1]', purple, 13);
+    for (let j = 0; j < GEN; j++) {
+      const i = PL - 1 + j;
+      box(svg, cx(PL + j), 232, CW - 8, 40, pl, purple, vals[i].toFixed(1), { bold: true });
+      svg.append(sv('line', { x1: cx(i) + CW / 2 - 4, y1: 166, x2: cx(PL + j) + CW / 2 - 4, y2: 230, stroke: purple, 'stroke-width': 1.6, opacity: 0.6 }));
+    }
+  }
+  if (step1 >= 3) {
+    label(svg, 10, 332, 'V after (Q)', coral); label(svg, 10, 352, '[prefix_len : -1] + r', coral, 13);
+    for (let j = 0; j < GEN; j++) {
+      const lastOne = j === GEN - 1;
+      box(svg, cx(PL + j), 312, CW - 8, 40, lastOne ? coral : cl, coral, (lastOne ? rew : vals[PL + j]).toFixed(1), { bold: true, color: lastOne ? '#fff' : css('--ink') });
+    }
+    label(svg, cx(N - 1) + 2, 376, 'reward r', coral, 14);
+  }
+  if (step1 >= 4) {
+    label(svg, 10, 432, 'advantage', teal); label(svg, 10, 452, 'Q − V', teal, 13);
+    let sum = 0;
+    for (let j = 0; j < GEN; j++) {
+      const q = j === GEN - 1 ? rew : vals[PL + j], v = vals[PL - 1 + j], a = q - v; sum += a;
+      box(svg, cx(PL + j), 410, CW - 8, 44, a > 0.05 ? teal : a < -0.05 ? coral : css('--grey'), null, fmt(a, 1), { bold: true, color: '#fff', fs: 19 });
+      svg.append(sv('text', { x: cx(PL + j) + CW / 2 - 4, y: 478, 'text-anchor': 'middle', 'font-size': 17, fill: css('--muted') }, 'for "' + TOK[PL + j].trim() + '"'));
+    }
+    if (step1 >= 5) {
+      svg.append(sv('text', { x: 10, y: 535, 'font-size': 24, 'font-weight': 700, fill: teal }, 'Σ A = ' + sum.toFixed(1) + '  =  r − V(prompt) = ' + rew.toFixed(1) + ' − ' + vals[PL - 1].toFixed(1)));
+    }
+  }
+}
+function drawLp() {
+  const svg = $('#lp'); svg.innerHTML = '';
+  const pl = +$('#pl').value; $('#plv').textContent = pl;
+  const X0 = 190, CW = 96, teal = css('--teal'), coral = css('--coral'), line = css('--line'), bg = css('--bg'), card = css('--card'), tl = css('--teal-lt'), cl = css('--coral-lt');
+  const cx = (i) => X0 + i * CW;
+  const LP = [-3.1, -0.4, -1.2, -2.3, -0.2, -0.9, -1.6, -2.0];
+  label(svg, 10, 40, 'position');
+  label(svg, 10, 92, 'model output'); label(svg, 10, 112, '(logits at i)', null, 13);
+  label(svg, 10, 222, 'token');
+  for (let i = 0; i < N; i++) {
+    svg.append(sv('text', { x: cx(i) + CW / 2 - 4, y: 40, 'text-anchor': 'middle', 'font-size': 18, fill: css('--muted') }, String(i)));
+    const kept = step2 >= 2 ? (i >= pl - 1 && i <= N - 2) : step2 >= 1 && i <= N - 2;
+    const dropped = step2 >= 3 && i === N - 1;
+    box(svg, cx(i), 70, CW - 8, 44, kept && step2 >= 2 ? cl : card, kept && step2 >= 2 ? coral : line, 'out ' + i, { op: dropped || (step2 >= 2 && i < pl - 1) ? 0.35 : 1 });
+    box(svg, cx(i), 200, CW - 8, 40, i < pl ? bg : tl, i < pl ? line : teal, TOK[i].replace('<|endoftext|>', 'BOS'), { fs: 16 });
+  }
+  // arrows output i -> token i+1
+  for (let i = 0; i < N - 1; i++) {
+    const use = step2 >= 2 ? i >= pl - 1 : true;
+    svg.append(sv('line', { x1: cx(i) + CW / 2 - 4, y1: 116, x2: cx(i + 1) + CW / 2 - 4, y2: 198, stroke: use ? coral : line, 'stroke-width': use ? 2.6 : 1.4, opacity: use ? 0.9 : 0.5 }));
+  }
+  if (step2 >= 3) {
+    label(svg, 10, 312, 'log π(token)', teal);
+    let k = 0;
+    for (let i = pl - 1; i <= N - 2; i++, k++) {
+      box(svg, cx(i + 1), 290, CW - 8, 42, teal, null, LP[i + 1].toFixed(1), { bold: true, color: '#fff' });
+    }
+    svg.append(sv('text', { x: 10, y: 372, 'font-size': 22, 'font-weight': 700, fill: teal }, 'shape (batch, ' + (N - pl) + ')' + (pl === PL ? ' = (batch, gen_len)' : '')));
+  }
+  if (step2 >= 4) {
+    const g0 = N - GEN - 1, g1 = N - 2;
+    svg.append(sv('rect', { x: cx(g0) - 6, y: 62, width: (g1 - g0 + 1) * CW + 4, height: 60, rx: 10, fill: 'none', stroke: css('--purple'), 'stroke-width': 3, 'stroke-dasharray': '8 6' }));
+    svg.append(sv('text', { x: cx(g0) - 120, y: 430, 'font-size': 21, 'font-weight': 700, fill: css('--purple') }, 'gen_len_slice = slice(-gen_len-1, -1) → positions ' + g0 + '…' + g1));
+  }
+}
+// dragging values
+let drag = null;
+$('#adv').addEventListener('pointerdown', (e) => {
+  const i = e.target.getAttribute && e.target.getAttribute('data-i'); if (i == null) return;
+  sel = +i; drag = { i: +i, y: e.clientY, v: vals[+i] }; e.target.setPointerCapture(e.pointerId); drawAdv();
+});
+$('#adv').addEventListener('pointermove', (e) => { if (!drag) return; vals[drag.i] = Math.round((drag.v - (e.clientY - drag.y) / 40) * 10) / 10; vals[drag.i] = Math.max(-2, Math.min(2, vals[drag.i])); drawAdv(); });
+window.addEventListener('pointerup', () => { drag = null; });
+document.addEventListener('keydown', (e) => { if (sel < 0) return; if (e.key === 'ArrowUp') { vals[sel] = Math.min(2, Math.round((vals[sel] + 0.1) * 10) / 10); drawAdv(); e.preventDefault(); } if (e.key === 'ArrowDown') { vals[sel] = Math.max(-2, Math.round((vals[sel] - 0.1) * 10) / 10); drawAdv(); e.preventDefault(); } });
+$('#rew').oninput = (e) => { rew = +e.target.value; $('#rewv').textContent = rew.toFixed(1); drawAdv(); };
+$('#rand').onclick = () => { vals = vals.map(() => Math.round((Math.random() * 2 - 0.5) * 10) / 10); drawAdv(); };
+$('#reset1').onclick = () => { vals = V0.slice(); rew = 1.2; $('#rew').value = 1.2; $('#rewv').textContent = '1.2'; sel = -1; drawAdv(); };
+$('#pl').oninput = drawLp;
+const P1 = placards($('#p1'), (n) => { step1 = n; drawAdv(); });
+const P2 = placards($('#p2'), (n) => { step2 = n; if (n >= 5) { } drawLp(); });
+let cur = 't1';
+setupTabs((t) => { cur = t; });
+keyNav(() => (cur === 't1' ? P1 : P2));
+themeToggle();
+window.addEventListener('themechange', () => { drawAdv(); drawLp(); });
+</script>
+
+</body>
+</html>

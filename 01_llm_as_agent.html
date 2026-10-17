@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LLM as an RL agent</title>
+<style>
+:root{--teal:#0E7C7B;--teal-lt:#DCEEED;--coral:#D2491F;--coral-lt:#FBE4DC;--purple:#6C4AB6;--purple-lt:#EAE3F7;--amber:#A86C10;--amber-lt:#FDF1D6;--blue:#2B5C9E;--blue-lt:#E1EAF6;--ink:#1A1A1A;--muted:#4F5A63;--line:#C9D0D5;--bg:#F2F4F5;--code:#1E1E2E;--grey:#8A949C;--card:#fff;--page:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ink:#ECEFF2;--muted:#AEB7BF;--line:#3B4650;--bg:#1F2830;--card:#182029;--page:#11181F;--teal-lt:#123B3B;--coral-lt:#47231A;--purple-lt:#2C2343;--amber-lt:#3D2E12;--blue-lt:#1B2D45;color-scheme:dark}}
+:root[data-theme="dark"]{--ink:#ECEFF2;--muted:#AEB7BF;--line:#3B4650;--bg:#1F2830;--card:#182029;--page:#11181F;--teal-lt:#123B3B;--coral-lt:#47231A;--purple-lt:#2C2343;--amber-lt:#3D2E12;--blue-lt:#1B2D45;color-scheme:dark}
+*{box-sizing:border-box}
+html{font-size:21px}
+@media (min-width:1700px){html{font-size:24px}}
+@media (max-width:900px){html{font-size:16px}}
+body{font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif;margin:0;background:var(--page);color:var(--ink);line-height:1.35}
+.wrap{max-width:1800px;margin:0 auto;padding:20px 32px 40px}
+@media (max-width:700px){.wrap{padding:14px 16px 30px}}
+.kicker{font-size:.78rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+h1{font-size:1.9rem;margin:.1em 0 .1em}
+h2{font-size:1.25rem;margin:.2em 0 .4em}
+.sub{color:var(--muted);font-size:1.02rem;margin:0 0 .6rem}
+.tabs{display:flex;flex-wrap:wrap;gap:10px;margin:.4rem 0 1rem;align-items:center}
+.tabs button{font:inherit;font-size:.95rem;font-weight:700;padding:.42rem .9rem;border-radius:12px;border:2px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.tabs button.on{background:var(--teal);border-color:var(--teal);color:#fff}
+section.tab{display:none}section.tab.on{display:block}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:24px;align-items:start}
+@media (max-width:1100px){.grid{grid-template-columns:1fr}}
+.grid.wide{grid-template-columns:minmax(0,2fr) minmax(300px,1fr)}
+@media (max-width:1100px){.grid.wide{grid-template-columns:1fr}}
+table.t.compact{font-size:.82rem;border-spacing:3px}table.t.compact td{min-width:1.8em;padding:.25em .35em}table.t.compact .tok{font-size:.82rem;padding:.12em .3em;margin:0}
+.stage{border:2px solid var(--line);border-radius:16px;padding:14px;background:var(--card);min-width:0}
+.panel{border-radius:16px;padding:14px 16px;background:var(--bg);min-width:0}
+.btn{font:inherit;font-size:.92rem;font-weight:700;padding:.45rem .85rem;border-radius:10px;border:2px solid var(--teal);background:var(--teal);color:#fff;cursor:pointer;margin:2px 4px 2px 0}
+.btn.ghost{background:transparent;color:var(--teal)}
+.btn.coral{background:var(--coral);border-color:var(--coral)}
+.btn.purple{background:var(--purple);border-color:var(--purple)}
+.btn:disabled{opacity:.4;cursor:default}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+label.ctl{display:flex;gap:10px;align-items:center;font-weight:700;font-size:.92rem;margin:6px 0;flex-wrap:wrap}
+input[type=range]{width:220px;accent-color:var(--teal)}
+.tok{display:inline-flex;align-items:center;justify-content:center;min-width:1.6em;padding:.18em .45em;border:2px solid var(--line);border-radius:8px;background:var(--card);font-size:.95rem;white-space:pre;margin:2px}
+.tok.pre{background:var(--bg)}
+.tok.gen{background:var(--teal-lt);border-color:var(--teal)}
+.tok.new{background:var(--coral);border-color:var(--coral);color:#fff}
+.mono{font-family:Consolas,"Courier New",monospace}
+code,.code{font-family:Consolas,"Courier New",monospace;font-size:.9em}
+pre.code{background:var(--code);color:#E6E6EF;border-radius:12px;padding:12px 14px;overflow-x:auto;font-size:.85rem;line-height:1.4;margin:.5em 0}
+pre.code .hl{color:#FFD479;font-weight:700}pre.code .cm{color:#8E9AAF}
+.placards{display:flex;flex-direction:column;gap:10px}
+.plc{border-radius:12px;padding:10px 14px;background:var(--card);border:2px solid var(--line);display:none}
+.plc.show{display:block}
+.plc.cur{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-lt)}
+.plc h3{margin:0 0 .25em;font-size:1.02rem;color:var(--teal)}
+.plc p{margin:.2em 0;font-size:.95rem}
+.stepnav{display:flex;gap:8px;align-items:center;margin:8px 0 4px}
+.stepnav .cnt{color:var(--muted);font-size:.85rem;font-weight:700}
+.big{font-size:1.6rem;font-weight:800}
+.muted{color:var(--muted)}
+.pill{display:inline-block;padding:.12em .6em;border-radius:999px;font-size:.8rem;font-weight:700;background:var(--teal-lt);color:var(--teal)}
+.pill.coral{background:var(--coral-lt);color:var(--coral)}.pill.amber{background:var(--amber-lt);color:var(--amber)}.pill.purple{background:var(--purple-lt);color:var(--purple)}
+table.t{border-collapse:separate;border-spacing:4px;font-size:.92rem}
+table.t th{background:#14202B;color:#fff;padding:.3em .55em;border-radius:6px;font-weight:700;text-align:center}
+table.t td{padding:.3em .55em;border-radius:6px;background:var(--bg);text-align:center;min-width:2.6em}
+table.t td.lbl{font-weight:700;text-align:left;background:transparent}
+.scroll{overflow-x:auto;max-width:100%}
+svg text{font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif}
+.note{font-size:.85rem;color:var(--muted);margin-top:.5em}
+.kbd{display:inline-block;border:1.5px solid var(--line);border-radius:5px;padding:0 .35em;font-size:.8rem;font-weight:700}
+.themebtn{position:fixed;top:10px;right:12px;font:inherit;font-size:.8rem;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:.2em .6em;cursor:pointer}
+
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="kicker">TARA · RLHF · demo 01</div>
+  <h1>The same loop, a new agent</h1>
+  <p class="sub">Tab 1: last week's agent–environment loop, stepped arrow by arrow, for CartPole and for GPT-2. Tab 2: one GPT-2 episode, token by token, with its reward and value.</p>
+  <div class="tabs"><button data-tab="t1" class="on">1 · Same loop, two agents</button><button data-tab="t2">2 · One episode, token by token</button></div>
+  <section class="tab on" id="t1">
+  <div class="grid wide">
+    <div class="stage">
+      <div class="row">
+        <button class="btn" id="mCart">CartPole · last week</button>
+        <button class="btn ghost" id="mGpt">GPT-2 · today</button>
+        <span style="flex:1"></span>
+        <button class="btn purple" id="lStep">Step ▶ <span class="kbd" style="color:#fff;border-color:#fff8">S</span></button>
+        <button class="btn ghost" id="lAuto">Auto</button>
+        <button class="btn ghost" id="lReset">Restart</button>
+      </div>
+      <svg id="loop" viewBox="0 0 960 470" style="width:100%;display:block"></svg>
+      <p class="note">CartPole uses the real CartPole physics with a hand-made policy. GPT-2 mode uses the toy next-token table from tab 2. Same loop, same arrows.</p>
+    </div>
+    <div class="panel" id="plc1">
+      <div class="placards">
+        <div class="plc"><h3>1 · The loop from week 1</h3><p>The agent reads the <b>state</b>, its policy gives <b>probabilities</b>, it <b>samples an action</b>, the environment answers with a <b>reward</b> and the <b>next state</b>. Press <b>Step</b> to walk one arrow at a time.</p></div>
+        <div class="plc"><h3>2 · CartPole, as you know it</h3><p>State = 4 numbers. Two actions, two probabilities. The physics moves the cart (we never write it down). <b>+1</b> every step until the pole falls.</p></div>
+        <div class="plc"><h3>3 · Now press "GPT-2 · today"</h3><p>State = the text so far. ~50,000 actions; we sample from the top 10. The environment just <b>glues the token on</b>.</p></div>
+        <div class="plc"><h3>4 · What changed</h3><p>The transition is <b>exact</b> (no physics). The reward is <b>0, 0, 0 …</b> then one number for the finished text. Every episode has the same length: 12 here, <code>gen_len = 30</code> in the notebook.</p></div>
+        <div class="plc"><h3>5 · What did not</h3><p>The loop, π(a | s), and sampling. Last week's recipe applies unchanged: play, score, nudge.</p></div>
+      </div>
+    </div>
+  </div>
+  </section>
+  <section class="tab" id="t2">
+  <div class="grid wide">
+    <div class="stage">
+      <div class="row">
+        <button class="btn" id="bNext">Next token <span class="kbd" style="color:#fff;border-color:#fff8">N</span></button>
+        <button class="btn ghost" id="bFinish">Finish episode</button>
+        <button class="btn ghost" id="bReset">New episode</button>
+        <label class="ctl">temperature <input type="range" id="temp" min="0.3" max="2" step="0.1" value="1"><span id="tempv">1.0</span></label>
+      </div>
+      <div class="scroll" style="margin-top:6px"><table class="t compact" id="seq"></table></div>
+      <div class="row" style="justify-content:space-between;margin-top:10px">
+        <h2 id="chartTitle" style="margin:0">Next-token probabilities π(a | s): top 10</h2>
+        <label class="ctl"><input type="checkbox" id="showA"> show advantages (Part 5)</label>
+      </div>
+      <svg id="bars" viewBox="0 0 640 330" style="width:100%;max-width:900px;display:block"></svg>
+      <div class="row" id="endbox" style="display:none"></div>
+      <p class="note">Toy model: a hand-made table of next-token probabilities (a "bigram" model), not real GPT-2. The value row is the exact expected final reward under this toy policy — what a perfectly trained value head would output.</p>
+    </div>
+    <div class="panel" id="plc">
+      <div class="placards">
+        <div class="plc"><h3>1 · The state is the whole row</h3><p>The agent sees <b>every token so far</b>: the prompt plus everything it has written. Adding a token makes the next state: <code>s_{t+1} = [s_t a_t]</code>.</p><p class="muted">The prompt (grey) is the same in every episode: <code>prefix = "This is"</code>, 3 tokens with the BOS token.</p></div>
+        <div class="plc"><h3>2 · An action is one token</h3><p>The bars are the policy <b>π(a | s)</b>: the model's probability for each possible next token. Only the top 10 are allowed (<code>top_k = 10</code>); one is <b>sampled</b> (coral).</p><p>Drag <b>temperature</b>: low = sharper, high = flatter (<code>temperature = 1.0</code> in the notebook).</p></div>
+        <div class="plc"><h3>3 · Fixed-length episodes</h3><p>Every episode is exactly <code>gen_len</code> new tokens (12 here, 30 in the notebook). Generation never stops early: <code>stop_at_eos=False</code>.</p></div>
+        <div class="plc"><h3>4 · Reward: 0, 0, 0 … then one number</h3><p>Nothing is scored until the text is finished. Then <code>reward_fn</code> reads the <b>whole text</b> and counts the periods. <code>" U.S."</code> is worth 2, <code>"..."</code> is worth 3.</p><p>Press <b>Finish episode</b> to see it.</p></div>
+        <div class="plc"><h3>5 · The value: a forecast at every position</h3><p>The <b>V</b> row is the critic's job: "from here, how many periods will this text end with?" It is defined after every token, even though the reward only arrives at the end.</p><p>Watch V <b>jump</b> when a period-heavy token is written.</p></div>
+        <div class="plc"><h3>6 · Why there is no γ</h3><p>One reward, always after the same number of steps. Discounting would multiply every return by the same constant, which changes nothing. So the notebook removes <code>gamma</code> and <code>gae_lambda</code>.</p></div>
+        <div class="plc"><h3>7 · The question for Part 5</h3><p>The reward is one number for the whole text. <b>Which tokens deserve the credit?</b> Hint: look at where V moved. Tick <b>show advantages</b> to peek.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+<script>
+// shared helpers: tabs, placards with keyboard, theme toggle
+function $(s, r) { return (r || document).querySelector(s); }
+function $$(s, r) { return Array.from((r || document).querySelectorAll(s)); }
+function el(tag, attrs, html) { const e = document.createElement(tag); if (attrs) for (const k in attrs) { if (k === 'class') e.className = attrs[k]; else if (k === 'style') e.style.cssText = attrs[k]; else e.setAttribute(k, attrs[k]); } if (html != null) e.innerHTML = html; return e; }
+const SVGNS = 'http://www.w3.org/2000/svg';
+function sv(tag, attrs, text) { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; }
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function setupTabs(onChange) {
+  const btns = $$('.tabs button[data-tab]');
+  btns.forEach((b) => b.addEventListener('click', () => {
+    btns.forEach((x) => x.classList.toggle('on', x === b));
+    $$('section.tab').forEach((s) => s.classList.toggle('on', s.id === b.dataset.tab));
+    if (onChange) onChange(b.dataset.tab);
+  }));
+}
+// placards: container with .plc children; shows first n; returns controller
+function placards(root, onStep) {
+  const cards = $$('.plc', root);
+  const nav = el('div', { class: 'stepnav' });
+  const back = el('button', { class: 'btn ghost' }, '◀ Back');
+  const next = el('button', { class: 'btn' }, 'Next ▶');
+  const cnt = el('span', { class: 'cnt' });
+  nav.append(back, next, cnt);
+  root.prepend(nav);
+  let n = 1;
+  function render() {
+    cards.forEach((c, i) => { c.classList.toggle('show', i < n); c.classList.toggle('cur', i === n - 1); });
+    cnt.textContent = n + ' / ' + cards.length + '   (← → keys)';
+    back.disabled = n <= 1; next.disabled = n >= cards.length;
+    if (onStep) onStep(n);
+  }
+  back.onclick = () => { if (n > 1) { n--; render(); } };
+  next.onclick = () => { if (n < cards.length) { n++; render(); } };
+  render();
+  return { go(k) { n = Math.max(1, Math.min(cards.length, k)); render(); }, get n() { return n; }, root, next: () => next.onclick(), back: () => back.onclick() };
+}
+function keyNav(getCtl) {
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    const c = getCtl(); if (!c) return;
+    if (e.key === 'ArrowRight') { c.next(); e.preventDefault(); }
+    if (e.key === 'ArrowLeft') { c.back(); e.preventDefault(); }
+  });
+}
+function themeToggle() {
+  const b = el('button', { class: 'themebtn', title: 'Light / dark' }, '◐ theme');
+  b.onclick = () => {
+    const r = document.documentElement;
+    const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    r.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('tara-theme', r.dataset.theme); } catch (e) { }
+    window.dispatchEvent(new Event('themechange'));
+  };
+  try { const t = localStorage.getItem('tara-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) { }
+  document.body.append(b);
+}
+function fmt(x, d) { d = d == null ? 2 : d; const s = (Math.abs(x) < 0.005 && d <= 2) ? (0).toFixed(d) : x.toFixed(d); return (x > 0.0049 ? '+' : '') + s; }
+function rng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
+
+</script>
+<script>
+const PER = { '.': 1, '...': 3, ' U.S.': 2, ' Dr.': 1, ' C. S. Lewis': 2 };
+const periods = (t) => (t.match(/\./g) || []).length;
+const T = {
+  ' is': { ' a': 30, ' the': 20, ' not': 8, ' an': 8, ' my': 6, ' what': 5, ' why': 5, ' how': 4, ' just': 4, ' really': 3 },
+  ' a': { ' list': 20, ' very': 15, ' new': 12, ' guest': 10, ' story': 10, ' great': 8, ' big': 7, ' rush': 6, ' short': 6, ' quick': 6 },
+  ' the': { ' latest': 20, ' first': 20, ' U.S.': 12, ' story': 12, ' end': 10, ' best': 10, ' new': 8, ' real': 4, ' only': 4 },
+  ' not': { ' going': 40, ' a': 20, ' the': 15, ' true': 15, ' what': 10 }, ' going': { ' to': 1 }, ' to': { ' happen': 40, ' be': 30, ' the': 30 },
+  ' happen': { '.': 70, '...': 20, '!': 10 }, ' be': { ' fun': 30, ' great': 30, ' the': 20, ' a': 20 }, ' fun': { '.': 6, '!': 4 },
+  ' an': { ' archived': 40, ' excerpt': 30, ' old': 30 }, ' archived': { ' article': 1 }, ' old': { ' story': 6, ' article': 4 },
+  ' article': { '.': 50, ' from': 30, ' and': 20 }, ' excerpt': { ' from': 1 }, ' from': { ' the': 50, ' Dr.': 25, ' C. S. Lewis': 25 },
+  ' Dr.': { ' Smith': 60, ' Who': 40 }, ' Smith': { '.': 60, ' and': 40 }, ' Who': { '.': 50, ' and': 50 }, ' C. S. Lewis': { '.': 60, ' and': 40 },
+  ' my': { ' first': 40, ' story': 30, ' mother': 30 }, ' mother': { '.': 50, ' and': 30, '...': 20 }, ' what': { ' happens': 50, ' the': 50 },
+  ' happens': { '.': 40, ' when': 30, ' next': 30 }, ' when': { ' the': 50, ' a': 50 }, ' next': { '.': 60, '...': 40 },
+  ' why': { ' the': 50, ' we': 50 }, ' how': { ' the': 50, ' we': 50 }, ' we': { ' live': 50, ' need': 50 }, ' live': { '.': 50, ' in': 50 },
+  ' need': { ' a': 50, ' the': 50 }, ' in': { ' the': 70, ' a': 30 }, ' just': { ' a': 60, ' the': 40 }, ' really': { ' a': 50, ' the': 50 },
+  ' list': { ' of': 1 }, ' of': { ' the': 60, ' characters': 20, ' a': 20 }, ' characters': { '.': 50, ' in': 30, ' and': 20 },
+  ' very': { ' important': 50, ' good': 50 }, ' important': { ' issue': 60, ' story': 40 }, ' issue': { '.': 70, ' for': 30 },
+  ' for': { ' the': 50, ' a': 50 }, ' good': { ' story': 50, ' idea': 50 }, ' idea': { '.': 70, ' and': 30 }, ' guest': { ' post': 1 },
+  ' post': { ' by': 50, '.': 50 }, ' by': { ' Dr.': 50, ' C. S. Lewis': 50 }, ' new': { ' series': 40, ' story': 30, ' idea': 30 },
+  ' series': { '.': 50, ' of': 30, ' by': 20 }, ' rush': { ' transcript': 1 }, ' transcript': { '.': 1 }, ' story': { '.': 50, ' about': 30, ' of': 20 },
+  ' about': { ' the': 60, ' a': 40 }, ' great': { ' story': 40, ' idea': 30, ' day': 30 }, ' day': { '.': 70, '!': 30 }, ' big': { ' day': 50, ' idea': 50 },
+  ' short': { ' story': 1 }, ' quick': { ' post': 50, ' look': 50 }, ' look': { ' at': 1 }, ' at': { ' the': 60, ' a': 40 },
+  ' latest': { ' in': 40, ' story': 30, ' news': 30 }, ' news': { '.': 50, ' from': 50 }, ' first': { ' in': 40, ' time': 30, ' story': 30 },
+  ' time': { '.': 50, ' in': 50 }, ' U.S.': { ' and': 40, ' government': 40, '.': 20 }, ' government': { '.': 60, ' and': 40 },
+  ' end': { ' of': 60, '.': 40 }, ' best': { ' story': 40, ' idea': 60 }, ' real': { ' story': 1 }, ' only': { ' story': 50, ' idea': 50 },
+  ' true': { '.': 1 }, ' and': { ' the': 50, ' a': 30, ' Dr.': 20 }, '.': { ' This': 30, ' It': 30, ' The': 20, '\n\n': 20 },
+  '...': { ' It': 50, ' The': 50 }, '!': { ' This': 50, ' It': 50 }, ' This': { ' is': 1 }, ' It': { ' is': 60, ' was': 40 },
+  ' was': { ' a': 50, ' the': 50 }, ' The': { ' U.S.': 20, ' story': 30, ' end': 20, ' first': 30 }, '\n\n': { ' The': 50, ' This': 50 },
+};
+const GEN = 12, PROMPT = ['<|endoftext|>', 'This', ' is'];
+let temp = 1, seq = [], dist = [], sampled = null, R = rng(7);
+function probs(last) {
+  const m = T[last] || T['.'];
+  let e = Object.entries(m).map(([k, w]) => [k, Math.pow(w, 1 / temp)]);
+  e.sort((a, b) => b[1] - a[1]); e = e.slice(0, 10);
+  const z = e.reduce((a, x) => a + x[1], 0);
+  return e.map(([k, w]) => [k, w / z]);
+}
+// exact expected future periods with k steps left
+const memo = new Map();
+function E(k, last) {
+  if (k === 0) return 0;
+  const key = k + '|' + last + '|' + temp; if (memo.has(key)) return memo.get(key);
+  let v = 0; for (const [t, p] of probs(last)) v += p * (periods(t) + E(k - 1, t));
+  memo.set(key, v); return v;
+}
+function last() { return seq.length ? seq[seq.length - 1] : ' is'; }
+function V(t) { // value after t generated tokens (t = 0 → prompt only)
+  const so = seq.slice(0, t).reduce((a, x) => a + periods(x), 0);
+  return so + E(GEN - t, t ? seq[t - 1] : ' is');
+}
+function step() {
+  if (seq.length >= GEN) return;
+  dist = probs(last());
+  let u = R(), acc = 0, pick = dist[dist.length - 1][0];
+  for (const [k, p] of dist) { acc += p; if (u <= acc) { pick = k; break; } }
+  sampled = pick; seq.push(pick); render();
+}
+function show(t) { return t === '\n\n' ? '⏎⏎' : t; }
+function render() {
+  const tb = $('#seq'); tb.innerHTML = '';
+  const done = seq.length >= GEN;
+  const reward = seq.reduce((a, x) => a + periods(x), 0);
+  const r1 = el('tr'), r2 = el('tr'), r3 = el('tr'), r4 = el('tr'), r0 = el('tr');
+  r0.append(el('td', { class: 'lbl' }, ''));
+  r1.append(el('td', { class: 'lbl' }, 'token'));
+  r2.append(el('td', { class: 'lbl' }, 'reward r'));
+  r3.append(el('td', { class: 'lbl' }, 'value V'));
+  r4.append(el('td', { class: 'lbl' }, 'advantage A'));
+  PROMPT.forEach((t, i) => {
+    r0.append(el('td', { class: 'muted', style: 'background:transparent;font-size:.75rem' }, 'pos ' + i));
+    r1.append(el('td', {}, '<span class="tok pre">' + t.replace(/</g, '&lt;') + '</span>'));
+    r2.append(el('td', { style: 'background:transparent' }, ''));
+    r3.append(el('td', { style: 'background:transparent' }, i === 2 ? V(0).toFixed(2) : ''));
+    r4.append(el('td', { style: 'background:transparent' }, ''));
+  });
+  seq.forEach((t, i) => {
+    const isLast = i === GEN - 1;
+    r0.append(el('td', { class: 'muted', style: 'background:transparent;font-size:.75rem' }, 'pos ' + (i + 3)));
+    r1.append(el('td', {}, '<span class="tok ' + (i === seq.length - 1 && !done ? 'new' : 'gen') + '">' + show(t) + '</span>'));
+    r2.append(el('td', { style: isLast ? 'background:var(--coral);color:#fff;font-weight:700' : '' }, isLast ? String(reward) : '0'));
+    r3.append(el('td', {}, isLast ? '—' : V(i + 1).toFixed(2)));
+    const a = (isLast ? reward : V(i + 1)) - V(i);
+    r4.append(el('td', { style: 'font-weight:700;color:' + (a > 0.05 ? 'var(--teal)' : a < -0.05 ? 'var(--coral)' : 'var(--muted)') }, fmt(a)));
+  });
+  tb.append(r0, r1, r2, r3);
+  if ($('#showA').checked) tb.append(r4);
+  // bars
+  const svg = $('#bars'); svg.innerHTML = ''; svg.style.display = done ? 'none' : 'block';
+  const d = done ? [] : (seq.length && sampled && dist.length ? dist : probs(last()));
+  const showing = done ? [] : probs(last());
+  $('#chartTitle').textContent = done ? 'Episode finished' : 'Next-token probabilities π(a | s): top ' + showing.length;
+  const ink = css('--ink'), mut = css('--muted');
+  showing.forEach(([k, p], i) => {
+    const y = 8 + i * 32;
+    svg.append(sv('text', { x: 140, y: y + 20, 'text-anchor': 'end', 'font-size': 17, fill: ink }, show(k).replace(/^ /, '␣')));
+    svg.append(sv('rect', { x: 150, y: y + 4, width: Math.max(2, p * 420), height: 22, rx: 4, fill: css('--teal') }));
+    svg.append(sv('text', { x: 158 + p * 420, y: y + 20, 'font-size': 15, fill: mut }, (p * 100).toFixed(1) + '%' + (periods(k) ? '   · ' + periods(k) + ' period' + (periods(k) > 1 ? 's' : '') : '')));
+  });
+  const eb = $('#endbox');
+  if (done) {
+    eb.style.display = 'flex';
+    const text = 'This is' + seq.join('');
+    eb.innerHTML = '<div class="panel" style="width:100%"><b>Finished text:</b> "' + text.replace(/\n/g, '⏎') + '"<br><span class="big" style="color:var(--coral)">reward = ' + reward + '</span> <span class="muted">periods counted on the whole text</span></div>';
+  } else eb.style.display = 'none';
+  $('#bNext').disabled = done; $('#bFinish').disabled = done;
+}
+$('#bNext').onclick = step;
+$('#bFinish').onclick = () => { while (seq.length < GEN) step(); };
+$('#bReset').onclick = () => { seq = []; sampled = null; render(); };
+$('#temp').oninput = (e) => { temp = +e.target.value; $('#tempv').textContent = temp.toFixed(1); render(); };
+$('#showA').onchange = render;
+document.addEventListener('keydown', (e) => { if ((e.key === 'n' || e.key === 'N') && curTab === 't2') step(); });
+const P = placards($('#plc'));
+// ---------- tab 1: the loop ----------
+let mode = 'cart', ph = 0, cs, gt, lastR = 0, total = 0, steps = 0, lp = null, la = null, done = false, auto = null;
+const Rl = rng(11);
+function cartReset() { cs = [0, 0, (Rl() - 0.5) * 0.08, 0]; }
+function cartPolicy(st) { const z = 3.2 * st[2] / 0.21 + 1.2 * st[3] + 0.3 * st[1]; const pr = 1 / (1 + Math.exp(-3 * z)); return [['left', 1 - pr], ['right', pr]]; }
+function cartStep(st, a) {
+  const g = 9.8, mc = 1, mp = 0.1, l = 0.5, F = a === 'right' ? 10 : -10, tau = 0.02;
+  const [x, xd, th, thd] = st, ct = Math.cos(th), stt = Math.sin(th);
+  const tmp = (F + mp * l * thd * thd * stt) / (mc + mp);
+  const thacc = (g * stt - ct * tmp) / (l * (4 / 3 - mp * ct * ct / (mc + mp)));
+  const xacc = tmp - mp * l * thacc * ct / (mc + mp);
+  return [x + tau * xd, xd + tau * xacc, th + tau * thd, thd + tau * thacc];
+}
+function loopReset() { ph = 0; total = 0; steps = 0; lastR = 0; lp = null; la = null; done = false; cartReset(); gt = []; drawLoop(); }
+function sample(d) { let u = Rl(), acc = 0; for (const [k, p] of d) { acc += p; if (u <= acc) return k; } return d[d.length - 1][0]; }
+function lstep() {
+  if (done) { loopReset(); return; }
+  ph = (ph % 4) + 1;
+  if (ph === 2) lp = mode === 'cart' ? cartPolicy(cs) : probs(gt.length ? gt[gt.length - 1] : ' is').slice(0, 6);
+  if (ph === 3) la = sample(lp);
+  if (ph === 4) {
+    steps++;
+    if (mode === 'cart') { cs = cartStep(cs, la); lastR = 1; total += 1; if (Math.abs(cs[2]) > 0.2095 || Math.abs(cs[0]) > 2.4 || steps >= 500) done = true; }
+    else { gt.push(la); if (gt.length >= GEN) { lastR = gt.reduce((a, t) => a + periods(t), 0); total = lastR; done = true; } else lastR = 0; }
+  }
+  drawLoop();
+}
+function drawLoop() {
+  const svg = $('#loop'); svg.innerHTML = '';
+  const ink = css('--ink'), mu = css('--muted'), teal = css('--teal'), amber = css('--amber'), coral = css('--coral'), tl = css('--teal-lt'), al = css('--amber-lt'), card = css('--card'), ln = css('--line'), purple = css('--purple');
+  const on = (k) => ph === k;
+  // boxes
+  svg.append(sv('rect', { x: 20, y: 120, width: 290, height: 220, rx: 14, fill: tl, stroke: on(1) || on(2) ? teal : 'none', 'stroke-width': 4 }));
+  svg.append(sv('text', { x: 165, y: 152, 'text-anchor': 'middle', 'font-size': 24, 'font-weight': 700, fill: teal }, 'Agent'));
+  svg.append(sv('text', { x: 165, y: 176, 'text-anchor': 'middle', 'font-size': 16, fill: mu }, mode === 'cart' ? 'policy network' : 'GPT-2'));
+  svg.append(sv('rect', { x: 650, y: 120, width: 290, height: 220, rx: 14, fill: al, stroke: on(4) ? amber : 'none', 'stroke-width': 4 }));
+  svg.append(sv('text', { x: 795, y: 152, 'text-anchor': 'middle', 'font-size': 24, 'font-weight': 700, fill: amber }, 'Environment'));
+  svg.append(sv('text', { x: 795, y: 176, 'text-anchor': 'middle', 'font-size': 16, fill: mu }, mode === 'cart' ? 'CartPole physics' : 'append token · reward_fn at the end'));
+  // arrows
+  const arr = (x1, y1, x2, y2, col, w) => { svg.append(sv('line', { x1, y1, x2, y2, stroke: col, 'stroke-width': w })); const dir = x2 > x1 ? 1 : -1; svg.append(sv('path', { d: `M${x2},${y2} l${-14 * dir},-8 l0,16 z`, fill: col })); };
+  arr(320, 170, 640, 170, on(3) ? purple : ln, on(3) ? 6 : 3);
+  svg.append(sv('text', { x: 480, y: 155, 'text-anchor': 'middle', 'font-size': 20, 'font-weight': 700, fill: on(3) ? purple : mu }, 'action: ' + (la != null && ph >= 3 ? (mode === 'cart' ? la : '"' + la.replace(/\n/g, '⏎') + '"') : '?')));
+  arr(640, 300, 320, 300, on(4) ? amber : ln, on(4) ? 6 : 3);
+  const rtxt = ph === 4 || (done) ? 'reward ' + (mode === 'cart' ? '+1' : (done ? lastR : '0')) + ' · next state' : 'reward · next state';
+  svg.append(sv('text', { x: 480, y: 330, 'text-anchor': 'middle', 'font-size': 20, 'font-weight': 700, fill: on(4) ? amber : mu }, rtxt));
+  // state panel
+  svg.append(sv('text', { x: 20, y: 30, 'font-size': 15, 'font-weight': 700, fill: on(1) ? teal : mu }, 'STATE s' + (on(1) ? '  ← the agent reads this' : '')));
+  if (mode === 'cart') {
+    const names = ['position', 'velocity', 'angle', 'spin'];
+    names.forEach((n, i) => svg.append(sv('text', { x: 20 + i * 150, y: 62, 'font-size': 19, fill: ink }, n + ' ' + (i === 2 ? (cs[2] * 57.3).toFixed(1) + '°' : cs[i].toFixed(2)))));
+    // mini cart
+    const cx = 795 + cs[0] * 50, gy = 290;
+    svg.append(sv('line', { x1: 670, y1: gy, x2: 920, y2: gy, stroke: mu, 'stroke-width': 2 }));
+    svg.append(sv('rect', { x: cx - 28, y: gy - 18, width: 56, height: 16, rx: 3, fill: ink }));
+    svg.append(sv('line', { x1: cx, y1: gy - 18, x2: cx + Math.sin(cs[2]) * 80, y2: gy - 18 - Math.cos(cs[2]) * 80, stroke: amber, 'stroke-width': 6, 'stroke-linecap': 'round' }));
+  } else {
+    const text = 'This is' + gt.join('');
+    const fo = text.length > 70 ? '…' + text.slice(-70) : text;
+    svg.append(sv('text', { x: 20, y: 62, 'font-size': 20, fill: ink }, '"' + fo.replace(/\n/g, '⏎') + '"'));
+    svg.append(sv('text', { x: 795, y: 250, 'text-anchor': 'middle', 'font-size': 16, fill: mu }, gt.length + ' / ' + GEN + ' tokens'));
+  }
+  // policy bars inside agent box
+  if (lp && ph >= 2) {
+    const n = lp.length, bw = Math.min(60, 240 / n - 6);
+    svg.append(sv('text', { x: 30, y: 205, 'font-size': 14, 'font-weight': 700, fill: on(2) ? teal : mu }, 'π(a | s)' + (on(2) ? ' ← probabilities' : '')));
+    lp.forEach(([k, p], i) => {
+      const x = 32 + i * (bw + 6), h = Math.max(2, p * 90), chosen = ph >= 3 && k === la;
+      svg.append(sv('rect', { x, y: 318 - h, width: bw, height: h, rx: 3, fill: chosen ? purple : teal }));
+      svg.append(sv('text', { x: x + bw / 2, y: 334, 'text-anchor': 'middle', 'font-size': 12, fill: ink }, (mode === 'cart' ? k : k.trim().replace(/\n/g, '⏎')).slice(0, 7)));
+      svg.append(sv('text', { x: x + bw / 2, y: 314 - h, 'text-anchor': 'middle', 'font-size': 12, fill: mu }, (p * 100).toFixed(0) + '%'));
+    });
+  }
+  // footer stats
+  const status = done ? (mode === 'cart' ? 'Pole fell / time up after ' + steps + ' steps · return G = ' + total : 'Episode done · reward = ' + lastR + ' periods (the only non-zero reward)') : 'step ' + steps + ' · ' + (mode === 'cart' ? 'return so far ' + total : 'rewards so far: all 0');
+  svg.append(sv('text', { x: 480, y: 420, 'text-anchor': 'middle', 'font-size': 21, 'font-weight': 700, fill: done ? coral : ink }, status));
+  svg.append(sv('text', { x: 480, y: 452, 'text-anchor': 'middle', 'font-size': 15, fill: mu }, ['press Step', '1 · agent reads the state', '2 · policy gives probabilities', '3 · sample an action', '4 · environment: reward + next state'][ph]));
+  $('#mCart').className = 'btn' + (mode === 'cart' ? '' : ' ghost'); $('#mGpt').className = 'btn' + (mode === 'gpt' ? '' : ' ghost');
+}
+$('#mCart').onclick = () => { mode = 'cart'; loopReset(); };
+$('#mGpt').onclick = () => { mode = 'gpt'; loopReset(); };
+$('#lStep').onclick = lstep;
+$('#lReset').onclick = loopReset;
+$('#lAuto').onclick = () => { if (auto) { clearInterval(auto); auto = null; $('#lAuto').textContent = 'Auto'; return; } $('#lAuto').textContent = 'Pause'; auto = setInterval(() => { lstep(); if (done) { clearInterval(auto); auto = null; $('#lAuto').textContent = 'Auto'; } }, mode === 'cart' ? 60 : 350); };
+const P1 = placards($('#plc1'), (n) => { if (n === 3 && mode !== 'gpt') { mode = 'gpt'; loopReset(); } if (n === 2 && mode !== 'cart') { mode = 'cart'; loopReset(); } });
+let curTab = 't1';
+setupTabs((t) => { curTab = t; });
+document.addEventListener('keydown', (e) => { if ((e.key === 's' || e.key === 'S') && curTab === 't1') lstep(); });
+keyNav(() => (curTab === 't1' ? P1 : P));
+themeToggle();
+window.addEventListener('themechange', () => { render(); drawLoop(); });
+render();
+loopReset();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,45 @@
+TARA RL week 2 · RLHF v13 · Slido polls (correct answer marked).
+
+Poll 1: An action has A = G − V(s) > 0. What does that mean?
+   A. The reward for that step was positive
+   B. The critic made a mistake
+   C. The action did better than what usually happens from this state   ✓
+   D. Its importance weight is above 1.2
+
+Poll 2: A model is fine-tuned only on human-written ideal answers. What does that data NOT tell it?
+   A. The format of a good answer
+   B. Which of its own likely answers are worse than others   ✓
+   C. Grammar and spelling
+   D. What topics people ask about
+
+Poll 3: In today's notebook, when does GPT-2 receive a reward?
+   A. After every token it writes
+   B. Once, after the 30th token, for the whole completion   ✓
+   C. Whenever it writes a period
+   D. When a person rates the text
+
+Poll 4: GPT-2 is about to write its 5th new token. What is the state?
+   A. Only the 4th token
+   B. The reward collected so far
+   C. The value head's output
+   D. The prompt plus the 4 tokens written so far   ✓
+
+Poll 5: The reward arrives only after token 30. How does token 3 get a non-zero advantage?
+   A. It copies the final reward
+   B. From how much the critic's forecast changed when token 3 was added   ✓
+   C. From γ discounting the final reward
+   D. It doesn't: only the last token learns
+
+Open text: How could the model get periods without writing junk?
+
+Poll 6: With kl_coef = 2.5 the model kept writing "This is a rush transcript. Copy may not be…". Why that text?
+   A. The reward function rewards news articles
+   B. The KL penalty forces it to copy training data
+   C. It has periods, and the original GPT-2 already finds it likely, so the KL cost is low   ✓
+   D. The clip stops it from writing anything else
+
+Poll 7: What does GRPO use instead of a critic?
+   A. A bigger KL penalty
+   B. The average reward of several answers to the same prompt   ✓
+   C. The reward model's own value estimate
+   D. A replay buffer of old games

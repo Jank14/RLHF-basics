@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VPG and PPO recap</title>
+<style>
+:root{--teal:#0E7C7B;--teal-lt:#DCEEED;--coral:#D2491F;--coral-lt:#FBE4DC;--purple:#6C4AB6;--purple-lt:#EAE3F7;--amber:#A86C10;--amber-lt:#FDF1D6;--blue:#2B5C9E;--blue-lt:#E1EAF6;--ink:#1A1A1A;--muted:#4F5A63;--line:#C9D0D5;--bg:#F2F4F5;--code:#1E1E2E;--grey:#8A949C;--card:#fff;--page:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ink:#ECEFF2;--muted:#AEB7BF;--line:#3B4650;--bg:#1F2830;--card:#182029;--page:#11181F;--teal-lt:#123B3B;--coral-lt:#47231A;--purple-lt:#2C2343;--amber-lt:#3D2E12;--blue-lt:#1B2D45;color-scheme:dark}}
+:root[data-theme="dark"]{--ink:#ECEFF2;--muted:#AEB7BF;--line:#3B4650;--bg:#1F2830;--card:#182029;--page:#11181F;--teal-lt:#123B3B;--coral-lt:#47231A;--purple-lt:#2C2343;--amber-lt:#3D2E12;--blue-lt:#1B2D45;color-scheme:dark}
+*{box-sizing:border-box}
+html{font-size:21px}
+@media (min-width:1700px){html{font-size:24px}}
+@media (max-width:900px){html{font-size:16px}}
+body{font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif;margin:0;background:var(--page);color:var(--ink);line-height:1.35}
+.wrap{max-width:1800px;margin:0 auto;padding:20px 32px 40px}
+@media (max-width:700px){.wrap{padding:14px 16px 30px}}
+.kicker{font-size:.78rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+h1{font-size:1.9rem;margin:.1em 0 .1em}
+h2{font-size:1.25rem;margin:.2em 0 .4em}
+.sub{color:var(--muted);font-size:1.02rem;margin:0 0 .6rem}
+.tabs{display:flex;flex-wrap:wrap;gap:10px;margin:.4rem 0 1rem;align-items:center}
+.tabs button{font:inherit;font-size:.95rem;font-weight:700;padding:.42rem .9rem;border-radius:12px;border:2px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.tabs button.on{background:var(--teal);border-color:var(--teal);color:#fff}
+section.tab{display:none}section.tab.on{display:block}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:24px;align-items:start}
+@media (max-width:1100px){.grid{grid-template-columns:1fr}}
+.grid.wide{grid-template-columns:minmax(0,2fr) minmax(300px,1fr)}
+@media (max-width:1100px){.grid.wide{grid-template-columns:1fr}}
+table.t.compact{font-size:.82rem;border-spacing:3px}table.t.compact td{min-width:1.8em;padding:.25em .35em}table.t.compact .tok{font-size:.82rem;padding:.12em .3em;margin:0}
+.stage{border:2px solid var(--line);border-radius:16px;padding:14px;background:var(--card);min-width:0}
+.panel{border-radius:16px;padding:14px 16px;background:var(--bg);min-width:0}
+.btn{font:inherit;font-size:.92rem;font-weight:700;padding:.45rem .85rem;border-radius:10px;border:2px solid var(--teal);background:var(--teal);color:#fff;cursor:pointer;margin:2px 4px 2px 0}
+.btn.ghost{background:transparent;color:var(--teal)}
+.btn.coral{background:var(--coral);border-color:var(--coral)}
+.btn.purple{background:var(--purple);border-color:var(--purple)}
+.btn:disabled{opacity:.4;cursor:default}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+label.ctl{display:flex;gap:10px;align-items:center;font-weight:700;font-size:.92rem;margin:6px 0;flex-wrap:wrap}
+input[type=range]{width:220px;accent-color:var(--teal)}
+.tok{display:inline-flex;align-items:center;justify-content:center;min-width:1.6em;padding:.18em .45em;border:2px solid var(--line);border-radius:8px;background:var(--card);font-size:.95rem;white-space:pre;margin:2px}
+.tok.pre{background:var(--bg)}
+.tok.gen{background:var(--teal-lt);border-color:var(--teal)}
+.tok.new{background:var(--coral);border-color:var(--coral);color:#fff}
+.mono{font-family:Consolas,"Courier New",monospace}
+code,.code{font-family:Consolas,"Courier New",monospace;font-size:.9em}
+pre.code{background:var(--code);color:#E6E6EF;border-radius:12px;padding:12px 14px;overflow-x:auto;font-size:.85rem;line-height:1.4;margin:.5em 0}
+pre.code .hl{color:#FFD479;font-weight:700}pre.code .cm{color:#8E9AAF}
+.placards{display:flex;flex-direction:column;gap:10px}
+.plc{border-radius:12px;padding:10px 14px;background:var(--card);border:2px solid var(--line);display:none}
+.plc.show{display:block}
+.plc.cur{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-lt)}
+.plc h3{margin:0 0 .25em;font-size:1.02rem;color:var(--teal)}
+.plc p{margin:.2em 0;font-size:.95rem}
+.stepnav{display:flex;gap:8px;align-items:center;margin:8px 0 4px}
+.stepnav .cnt{color:var(--muted);font-size:.85rem;font-weight:700}
+.big{font-size:1.6rem;font-weight:800}
+.muted{color:var(--muted)}
+.pill{display:inline-block;padding:.12em .6em;border-radius:999px;font-size:.8rem;font-weight:700;background:var(--teal-lt);color:var(--teal)}
+.pill.coral{background:var(--coral-lt);color:var(--coral)}.pill.amber{background:var(--amber-lt);color:var(--amber)}.pill.purple{background:var(--purple-lt);color:var(--purple)}
+table.t{border-collapse:separate;border-spacing:4px;font-size:.92rem}
+table.t th{background:#14202B;color:#fff;padding:.3em .55em;border-radius:6px;font-weight:700;text-align:center}
+table.t td{padding:.3em .55em;border-radius:6px;background:var(--bg);text-align:center;min-width:2.6em}
+table.t td.lbl{font-weight:700;text-align:left;background:transparent}
+.scroll{overflow-x:auto;max-width:100%}
+svg text{font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif}
+.note{font-size:.85rem;color:var(--muted);margin-top:.5em}
+.kbd{display:inline-block;border:1.5px solid var(--line);border-radius:5px;padding:0 .35em;font-size:.8rem;font-weight:700}
+.themebtn{position:fixed;top:10px;right:12px;font:inherit;font-size:.8rem;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:.2em .6em;cursor:pointer}
+
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="kicker">TARA · RLHF · demo 07 · revision</div>
+  <h1>VPG and PPO, hands on</h1>
+  <p class="sub">Tab 1: one round of VPG: returns, the "usual", the score, then a gradient step and new games. Tab 2: PPO's importance weight and clip on a single action.</p>
+  <div class="tabs"><button data-tab="t1" class="on">1 · VPG: score, step, play again</button><button data-tab="t2">2 · PPO: importance weight and clip</button></div>
+
+  <section class="tab on" id="t1">
+    <div class="grid">
+      <div class="stage">
+        <div class="row">
+          <label class="ctl">step t <input type="range" id="tt" min="0" max="60" value="0"> <span id="ttv" class="big" style="font-size:1.1rem">0</span></label>
+          <button class="btn" id="stepBtn">Gradient step → play new games</button>
+          <button class="btn ghost" id="resetBtn">Reset</button>
+        </div>
+        <h2>Return from step t in each game (G<sub>t</sub> = rewards still to come)</h2>
+        <svg id="gsv" viewBox="0 0 640 250" style="width:100%;height:auto"></svg>
+        <h2>Average return J over rounds (what VPG maximises)</h2>
+        <svg id="jsv" viewBox="0 0 640 170" style="width:100%;height:auto"></svg>
+      </div>
+      <div class="panel">
+        <div class="placards" id="p1">
+          <div class="plc"><h3>1 · Four games, one policy</h3><p>Same weights, different games: the pole fell after <b>5, 40, 120 and 15</b> steps. Each bar is G<sub>t</sub>: the +1s still to come from step t.</p></div>
+          <div class="plc"><h3>2 · The usual = average over games at this step</h3><p>The dashed line is VPG's "usual" b<sub>t</sub> = average of G<sub>t</sub> over the games. Move the slider: the usual changes with t, but not with the <b>state</b> each game is in.</p></div>
+          <div class="plc"><h3>3 · Score = G<sub>t</sub> − usual</h3><p>Above the line → that action was better than usual → make it more likely. Below → less likely. Short games get negative scores early on.</p></div>
+          <div class="plc"><h3>4 · One gradient step</h3><p>θ ← θ + α · mean[∇ log π(a|s) · score]. Press <b>Gradient step</b>: the policy changes, we play <b>new</b> games, and the old ones are thrown away.</p></div>
+          <div class="plc"><h3>5 · Repeat</h3><p>Each round the average return J climbs (bottom chart). That is all of VPG: play, score, step, repeat. (Toy simulation, not a real CartPole.)</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab" id="t2">
+    <div class="grid">
+      <div class="stage">
+        <div class="row">
+          <label class="ctl">π<sub>old</sub>(a|s) when played <input type="range" id="po" min="5" max="95" value="40"> <span id="pov"></span></label>
+        </div>
+        <div class="row">
+          <label class="ctl">π<sub>new</sub>(a|s) now <input type="range" id="pn" min="1" max="99" value="50"> <span id="pnv"></span></label>
+        </div>
+        <div class="row">
+          <label class="ctl">advantage A <input type="range" id="aa" min="-20" max="20" value="10"> <span id="aav"></span></label>
+        </div>
+        <div class="row" id="pstats" style="margin:8px 0"></div>
+        <svg id="csv" viewBox="0 0 640 300" style="width:100%;height:auto"></svg>
+        <p class="note">Curve: the clipped objective min(r·A, clip(r, 0.8, 1.2)·A) as π<sub>new</sub> moves. Flat part = gradient 0 = stop pushing.</p>
+      </div>
+      <div class="panel">
+        <div class="placards" id="p2">
+          <div class="plc"><h3>1 · The batch was played by π<sub>old</sub></h3><p>"push right" had probability <b>0.40</b> when the game was played. After a gradient step it is <b>0.50</b>.</p></div>
+          <div class="plc"><h3>2 · Importance weight r = π<sub>new</sub> / π<sub>old</sub></h3><p>r = 0.50 / 0.40 = <b>1.25</b>. Re-weighting old games by r tells us how the <b>new</b> policy would score, without playing again.</p></div>
+          <div class="plc"><h3>3 · Objective r · A</h3><p>Positive A: raising π<sub>new</sub> raises r·A. Keep stepping on the same batch and r keeps growing…</p></div>
+          <div class="plc"><h3>4 · The clip</h3><p>Past r = 1.2 (for A &gt; 0) the curve goes <b>flat</b>: no more reward for pushing. Drag π<sub>new</sub> above 0.48 and watch "gradient: 0".</p></div>
+          <div class="plc"><h3>5 · Bad actions</h3><p>Set A negative: now the flat part is below r = 0.8. A bad action can be pushed down to 0.8× its old probability per batch, no further.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+<script>
+// shared helpers: tabs, placards with keyboard, theme toggle
+function $(s, r) { return (r || document).querySelector(s); }
+function $$(s, r) { return Array.from((r || document).querySelectorAll(s)); }
+function el(tag, attrs, html) { const e = document.createElement(tag); if (attrs) for (const k in attrs) { if (k === 'class') e.className = attrs[k]; else if (k === 'style') e.style.cssText = attrs[k]; else e.setAttribute(k, attrs[k]); } if (html != null) e.innerHTML = html; return e; }
+const SVGNS = 'http://www.w3.org/2000/svg';
+function sv(tag, attrs, text) { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; }
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function setupTabs(onChange) {
+  const btns = $$('.tabs button[data-tab]');
+  btns.forEach((b) => b.addEventListener('click', () => {
+    btns.forEach((x) => x.classList.toggle('on', x === b));
+    $$('section.tab').forEach((s) => s.classList.toggle('on', s.id === b.dataset.tab));
+    if (onChange) onChange(b.dataset.tab);
+  }));
+}
+// placards: container with .plc children; shows first n; returns controller
+function placards(root, onStep) {
+  const cards = $$('.plc', root);
+  const nav = el('div', { class: 'stepnav' });
+  const back = el('button', { class: 'btn ghost' }, '◀ Back');
+  const next = el('button', { class: 'btn' }, 'Next ▶');
+  const cnt = el('span', { class: 'cnt' });
+  nav.append(back, next, cnt);
+  root.prepend(nav);
+  let n = 1;
+  function render() {
+    cards.forEach((c, i) => { c.classList.toggle('show', i < n); c.classList.toggle('cur', i === n - 1); });
+    cnt.textContent = n + ' / ' + cards.length + '   (← → keys)';
+    back.disabled = n <= 1; next.disabled = n >= cards.length;
+    if (onStep) onStep(n);
+  }
+  back.onclick = () => { if (n > 1) { n--; render(); } };
+  next.onclick = () => { if (n < cards.length) { n++; render(); } };
+  render();
+  return { go(k) { n = Math.max(1, Math.min(cards.length, k)); render(); }, get n() { return n; }, root, next: () => next.onclick(), back: () => back.onclick() };
+}
+function keyNav(getCtl) {
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    const c = getCtl(); if (!c) return;
+    if (e.key === 'ArrowRight') { c.next(); e.preventDefault(); }
+    if (e.key === 'ArrowLeft') { c.back(); e.preventDefault(); }
+  });
+}
+function themeToggle() {
+  const b = el('button', { class: 'themebtn', title: 'Light / dark' }, '◐ theme');
+  b.onclick = () => {
+    const r = document.documentElement;
+    const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    r.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('tara-theme', r.dataset.theme); } catch (e) { }
+    window.dispatchEvent(new Event('themechange'));
+  };
+  try { const t = localStorage.getItem('tara-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) { }
+  document.body.append(b);
+}
+function fmt(x, d) { d = d == null ? 2 : d; const s = (Math.abs(x) < 0.005 && d <= 2) ? (0).toFixed(d) : x.toFixed(d); return (x > 0.0049 ? '+' : '') + s; }
+function rng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
+
+</script>
+<script>
+themeToggle();
+setupTabs();
+let STEP = 1;
+
+// ---------- Tab 1: VPG ----------
+const BASE = [5, 40, 120, 15];
+let L = BASE.slice(), J = [mean(BASE)], round = 0;
+const R = rng(7);
+function mean(a) { return a.reduce((x, y) => x + y, 0) / a.length; }
+function drawG() {
+  const t = +$('#tt').value; $('#ttv').textContent = t;
+  const svg = $('#gsv'); svg.innerHTML = '';
+  const teal = css('--teal'), coral = css('--coral'), amber = css('--amber'), ink = css('--ink'), muted = css('--muted'), line = css('--line');
+  const G = L.map((l) => Math.max(0, l - t)), b = mean(G), maxG = Math.max(150, ...L);
+  const x0 = 90, w = 110, gap = 30, yb = 210, hmax = 170;
+  svg.append(sv('line', { x1: 60, y1: yb, x2: 630, y2: yb, stroke: line, 'stroke-width': 2 }));
+  const step = STEP;
+  G.forEach((g, i) => {
+    const x = x0 + i * (w + gap), h = g / maxG * hmax;
+    const col = step >= 3 ? (g >= b ? teal : coral) : teal;
+    svg.append(sv('rect', { x, y: yb - h, width: w, height: Math.max(h, 1), fill: col, rx: 4 }));
+    svg.append(sv('text', { x: x + w / 2, y: yb - h - 6, 'text-anchor': 'middle', 'font-size': 16, 'font-weight': 700, fill: ink }, 'G = ' + g));
+    svg.append(sv('text', { x: x + w / 2, y: yb + 20, 'text-anchor': 'middle', 'font-size': 14, fill: muted }, 'game ' + (i + 1) + ' (falls at ' + L[i] + ')'));
+    if (step >= 3) svg.append(sv('text', { x: x + w / 2, y: yb + 38, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 700, fill: g >= b ? teal : coral }, 'score ' + (g - b >= 0 ? '+' : '') + (g - b).toFixed(0)));
+  });
+  if (step >= 2) {
+    const y = yb - b / maxG * hmax;
+    svg.append(sv('line', { x1: 60, y1: y, x2: 630, y2: y, stroke: amber, 'stroke-width': 3, 'stroke-dasharray': '8 6' }));
+    svg.append(sv('text', { x: 66, y: y - 6, 'font-size': 15, 'font-weight': 700, fill: amber }, 'usual b = ' + b.toFixed(1)));
+  }
+  drawJ();
+}
+function drawJ() {
+  const svg = $('#jsv'); svg.innerHTML = '';
+  const teal = css('--teal'), ink = css('--ink'), line = css('--line'), muted = css('--muted');
+  const x0 = 60, yb = 140, h = 110, n = Math.max(J.length, 6), dx = 560 / (n - 1 || 1);
+  svg.append(sv('line', { x1: x0, y1: yb, x2: 630, y2: yb, stroke: line, 'stroke-width': 2 }));
+  svg.append(sv('text', { x: x0 - 6, y: yb + 4, 'text-anchor': 'end', 'font-size': 13, fill: muted }, '0'));
+  svg.append(sv('text', { x: x0 - 6, y: yb - h + 4, 'text-anchor': 'end', 'font-size': 13, fill: muted }, '500'));
+  let d = '';
+  J.forEach((j, i) => { const x = x0 + i * dx, y = yb - Math.min(j, 500) / 500 * h; d += (i ? 'L' : 'M') + x + ' ' + y; svg.append(sv('circle', { cx: x, cy: y, r: 5, fill: teal })); svg.append(sv('text', { x, y: y - 9, 'text-anchor': 'middle', 'font-size': 13, fill: ink }, j.toFixed(0))); svg.append(sv('text', { x, y: yb + 18, 'text-anchor': 'middle', 'font-size': 12, fill: muted }, 'round ' + i)); });
+  svg.prepend(sv('path', { d, fill: 'none', stroke: teal, 'stroke-width': 3 }));
+}
+$('#tt').oninput = drawG;
+$('#stepBtn').onclick = () => {
+  round++;
+  L = L.map((l) => Math.min(500, Math.round(l * (1.35 + 0.5 * R()) + 5)));
+  J.push(mean(L)); if (J.length > 10) J.shift();
+  $('#tt').max = Math.max(60, ...L); drawG();
+};
+$('#resetBtn').onclick = () => { L = BASE.slice(); J = [mean(BASE)]; round = 0; $('#tt').value = 0; drawG(); };
+const ctl1 = placards($('#p1'), (n) => { STEP = n; drawG(); });
+
+// ---------- Tab 2: PPO ----------
+function drawC() {
+  const po = $('#po').value / 100, pn = $('#pn').value / 100, A = $('#aa').value / 10;
+  $('#pov').textContent = po.toFixed(2); $('#pnv').textContent = pn.toFixed(2); $('#aav').textContent = (A >= 0 ? '+' : '') + A.toFixed(1);
+  const r = pn / po, rc = Math.max(0.8, Math.min(1.2, r)), obj = Math.min(r * A, rc * A);
+  const flat = (A > 0 && r > 1.2) || (A < 0 && r < 0.8);
+  $('#pstats').innerHTML = '<span class="pill">r = ' + r.toFixed(2) + '</span> <span class="pill purple">r·A = ' + (r * A).toFixed(2) + '</span> <span class="pill amber">objective = ' + obj.toFixed(2) + '</span> <span class="pill ' + (flat ? 'coral' : '') + '">gradient: ' + (flat ? '0 (clipped)' : 'pushes') + '</span>';
+  const svg = $('#csv'); svg.innerHTML = '';
+  const teal = css('--teal'), coral = css('--coral'), ink = css('--ink'), line = css('--line'), muted = css('--muted'), tl = css('--teal-lt');
+  const X = (p) => 60 + p * 560, f = (p) => { const rr = p / po; return Math.min(rr * A, Math.max(0.8, Math.min(1.2, rr)) * A); };
+  const vals = []; for (let p = 0.01; p <= 0.99; p += 0.01) vals.push([p, f(p)]);
+  const lo = Math.min(...vals.map((v) => v[1]), -0.5), hi = Math.max(...vals.map((v) => v[1]), 0.5);
+  const Y = (v) => 260 - (v - lo) / (hi - lo) * 220;
+  svg.append(sv('rect', { x: X(0.8 * po), y: 30, width: X(Math.min(0.99, 1.2 * po)) - X(0.8 * po), height: 230, fill: tl }));
+  svg.append(sv('line', { x1: 60, y1: Y(0), x2: 620, y2: Y(0), stroke: line, 'stroke-width': 2 }));
+  let d = ''; vals.forEach(([p, v], i) => { d += (i ? 'L' : 'M') + X(p) + ' ' + Y(v); });
+  svg.append(sv('path', { d, fill: 'none', stroke: teal, 'stroke-width': 4 }));
+  svg.append(sv('line', { x1: X(po), y1: 30, x2: X(po), y2: 260, stroke: muted, 'stroke-dasharray': '4 4' }));
+  svg.append(sv('text', { x: X(po), y: 22, 'text-anchor': 'middle', 'font-size': 14, fill: muted }, 'π_old'));
+  svg.append(sv('circle', { cx: X(pn), cy: Y(obj), r: 9, fill: flat ? coral : teal, stroke: '#fff', 'stroke-width': 2 }));
+  svg.append(sv('text', { x: 620, y: 285, 'text-anchor': 'end', 'font-size': 14, fill: muted }, 'π_new(a|s) →'));
+  svg.append(sv('text', { x: X(0.8 * po) + 4, y: 252, 'font-size': 13, fill: teal, 'font-weight': 700 }, '0.8–1.2 × π_old'));
+}
+['po', 'pn', 'aa'].forEach((id) => ($('#' + id).oninput = drawC));
+drawC();
+const ctl2 = placards($('#p2'));
+keyNav(() => ($('#t1').classList.contains('on') ? ctl1 : ctl2));
+window.addEventListener('themechange', () => { drawG(); drawC(); });
+</script>
+
+</body>
+</html>

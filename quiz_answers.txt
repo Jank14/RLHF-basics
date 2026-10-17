@@ -1,0 +1,82 @@
+TARA RL week 2 · RLHF lecture v13 · Slido answers + pause prompts (presenter only)
+Slide numbers = slideshow numbers in RLHF_lecture_v13_PowerPoint.pptx (every click counted).
+
+Q1 · slide 16 · An action has A = G − V(s) > 0. What does that mean?
+   A. The reward for that step was positive
+   B. The critic made a mistake
+   C. The action did better than what usually happens from this state
+   D. Its importance weight is above 1.2
+   ANSWER: C
+   WHY: V(s) is the usual return from the state; G is what happened after this action. G above V means the action beat the usual, whatever the sign of the raw reward.
+
+PAUSE · slide 17 · Pause after Part 1
+   Stop here for ~2 min. Take Slido questions first, then the discussion prompt if time allows. Prompt answer: State = the text so far (prompt + everything written); action = the next token. That is Part 4.
+
+Q2 · slide 32 · A model is fine-tuned only on human-written ideal answers. What does that data NOT tell it?
+   A. The format of a good answer
+   B. Which of its own likely answers are worse than others
+   C. Grammar and spelling
+   D. What topics people ask about
+   ANSWER: B
+   WHY: Demonstrations only say "write this". They never compare two answers or mark the model's own mistakes; a ranking or a reward does.
+
+PAUSE · slide 33 · Pause after Part 2
+   Stop here for ~2 min. Take Slido questions first, then the discussion prompt if time allows. Prompt answer: A good summary, a joke, a polite refusal, a hard proof, code that passes tests: people recognise a good one far more easily than they write one.
+
+Q3 · slide 62 · In today's notebook, when does GPT-2 receive a reward?
+   A. After every token it writes
+   B. Once, after the 30th token, for the whole completion
+   C. Whenever it writes a period
+   D. When a person rates the text
+   ANSWER: B
+   WHY: reward_fn reads the finished 30-token completion and returns one number. Every token before that gets 0, so the reward is per completion.
+
+PAUSE · slide 63 · Pause after Part 3
+   Stop here for ~2 min. Take Slido questions first, then the discussion prompt if time allows. Prompt answer: RL will find and exploit its mistakes: answers that score high but people dislike (reward hacking). We will watch exactly this happen with the period counter in Part 6.
+
+Q4 · slide 74 · GPT-2 is about to write its 5th new token. What is the state?
+   A. Only the 4th token
+   B. The reward collected so far
+   C. The value head's output
+   D. The prompt plus the 4 tokens written so far
+   ANSWER: D
+   WHY: The state is the whole sequence so far: s_{t+1} = s_t + a_t. Rewards and values are outputs, not the state.
+
+PAUSE · slide 75 · Pause after Part 4
+   Stop here for ~2 min. Take Slido questions first, then the discussion prompt if time allows. Prompt answer: 30 actions: the notebook scores every token separately (a value forecast and an advantage per token). Seeing the completion as one action is also valid; GRPO effectively does that.
+
+Q5 · slide 100 · The reward arrives only after token 30. How does token 3 get a non-zero advantage?
+   A. It copies the final reward
+   B. From how much the critic's forecast changed when token 3 was added
+   C. From γ discounting the final reward
+   D. It doesn't: only the last token learns
+   ANSWER: B
+   WHY: A_t = r_t + V(s_{t+1}) − V(s_t). If writing token 3 made the critic expect more periods, token 3 gets a positive advantage, even though its own reward is 0.
+
+PAUSE · slide 101 · Pause after Part 5
+   Stop here for ~2 min. Take Slido questions first, then the discussion prompt if time allows. Prompt answer: Advantages are noisy until the head learns. It gets a 25× larger learning rate (5e-4 vs 2e-5), there is an LR warm-up, and the clip limits how far any batch moves the policy.
+
+OPEN TEXT · slide 121 [skip if short] · Slido brainstorm
+   The notebook's brainstorm exercise. Two minutes on Slido, open text, then the next slide.
+
+Q6 · slide 137 · With kl_coef = 2.5 the model kept writing "This is a rush transcript. Copy may not be…". Why that text?
+   A. The reward function rewards news articles
+   B. The KL penalty forces it to copy training data
+   C. It has periods, and the original GPT-2 already finds it likely, so the KL cost is low
+   D. The clip stops it from writing anything else
+   ANSWER: C
+   WHY: Reward minus kl_coef × KL is high when the text scores well AND the original model already likes it. This text does both, so the policy collapses onto it.
+
+PAUSE · slide 138 · Pause after Part 6
+   Stop here for ~2 min. Take Slido questions first, then the discussion prompt if time allows. Prompt answer: Any unwanted behaviour the base model sometimes shows, e.g. offensive text. Dropping it is cheap under KL(π_PPO ‖ π_base), one reason this direction is used.
+
+Q7 · slide 194 · What does GRPO use instead of a critic?
+   A. A bigger KL penalty
+   B. The average reward of several answers to the same prompt
+   C. The reward model's own value estimate
+   D. A replay buffer of old games
+   ANSWER: B
+   WHY: GRPO samples a group per prompt and uses the group mean (and std) as the baseline: (r − mean) / std, applied to every token of each answer.
+
+PAUSE · slide 195 · Pause after Part 7
+   Stop here for ~2 min. Take Slido questions first, then the discussion prompt if time allows. Prompt answer: Usually LoRA: memory is the hard limit for a big model, and LoRA removes the second model copy and most optimiser state. GRPO removes the critic, a small head, but needs several answers per prompt. They combine well, as in the notebook.

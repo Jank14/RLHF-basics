@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Toy RLHF training</title>
+<style>
+:root{--teal:#0E7C7B;--teal-lt:#DCEEED;--coral:#D2491F;--coral-lt:#FBE4DC;--purple:#6C4AB6;--purple-lt:#EAE3F7;--amber:#A86C10;--amber-lt:#FDF1D6;--blue:#2B5C9E;--blue-lt:#E1EAF6;--ink:#1A1A1A;--muted:#4F5A63;--line:#C9D0D5;--bg:#F2F4F5;--code:#1E1E2E;--grey:#8A949C;--card:#fff;--page:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ink:#ECEFF2;--muted:#AEB7BF;--line:#3B4650;--bg:#1F2830;--card:#182029;--page:#11181F;--teal-lt:#123B3B;--coral-lt:#47231A;--purple-lt:#2C2343;--amber-lt:#3D2E12;--blue-lt:#1B2D45;color-scheme:dark}}
+:root[data-theme="dark"]{--ink:#ECEFF2;--muted:#AEB7BF;--line:#3B4650;--bg:#1F2830;--card:#182029;--page:#11181F;--teal-lt:#123B3B;--coral-lt:#47231A;--purple-lt:#2C2343;--amber-lt:#3D2E12;--blue-lt:#1B2D45;color-scheme:dark}
+*{box-sizing:border-box}
+html{font-size:21px}
+@media (min-width:1700px){html{font-size:24px}}
+@media (max-width:900px){html{font-size:16px}}
+body{font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif;margin:0;background:var(--page);color:var(--ink);line-height:1.35}
+.wrap{max-width:1800px;margin:0 auto;padding:20px 32px 40px}
+@media (max-width:700px){.wrap{padding:14px 16px 30px}}
+.kicker{font-size:.78rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+h1{font-size:1.9rem;margin:.1em 0 .1em}
+h2{font-size:1.25rem;margin:.2em 0 .4em}
+.sub{color:var(--muted);font-size:1.02rem;margin:0 0 .6rem}
+.tabs{display:flex;flex-wrap:wrap;gap:10px;margin:.4rem 0 1rem;align-items:center}
+.tabs button{font:inherit;font-size:.95rem;font-weight:700;padding:.42rem .9rem;border-radius:12px;border:2px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.tabs button.on{background:var(--teal);border-color:var(--teal);color:#fff}
+section.tab{display:none}section.tab.on{display:block}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:24px;align-items:start}
+@media (max-width:1100px){.grid{grid-template-columns:1fr}}
+.grid.wide{grid-template-columns:minmax(0,2fr) minmax(300px,1fr)}
+@media (max-width:1100px){.grid.wide{grid-template-columns:1fr}}
+table.t.compact{font-size:.82rem;border-spacing:3px}table.t.compact td{min-width:1.8em;padding:.25em .35em}table.t.compact .tok{font-size:.82rem;padding:.12em .3em;margin:0}
+.stage{border:2px solid var(--line);border-radius:16px;padding:14px;background:var(--card);min-width:0}
+.panel{border-radius:16px;padding:14px 16px;background:var(--bg);min-width:0}
+.btn{font:inherit;font-size:.92rem;font-weight:700;padding:.45rem .85rem;border-radius:10px;border:2px solid var(--teal);background:var(--teal);color:#fff;cursor:pointer;margin:2px 4px 2px 0}
+.btn.ghost{background:transparent;color:var(--teal)}
+.btn.coral{background:var(--coral);border-color:var(--coral)}
+.btn.purple{background:var(--purple);border-color:var(--purple)}
+.btn:disabled{opacity:.4;cursor:default}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+label.ctl{display:flex;gap:10px;align-items:center;font-weight:700;font-size:.92rem;margin:6px 0;flex-wrap:wrap}
+input[type=range]{width:220px;accent-color:var(--teal)}
+.tok{display:inline-flex;align-items:center;justify-content:center;min-width:1.6em;padding:.18em .45em;border:2px solid var(--line);border-radius:8px;background:var(--card);font-size:.95rem;white-space:pre;margin:2px}
+.tok.pre{background:var(--bg)}
+.tok.gen{background:var(--teal-lt);border-color:var(--teal)}
+.tok.new{background:var(--coral);border-color:var(--coral);color:#fff}
+.mono{font-family:Consolas,"Courier New",monospace}
+code,.code{font-family:Consolas,"Courier New",monospace;font-size:.9em}
+pre.code{background:var(--code);color:#E6E6EF;border-radius:12px;padding:12px 14px;overflow-x:auto;font-size:.85rem;line-height:1.4;margin:.5em 0}
+pre.code .hl{color:#FFD479;font-weight:700}pre.code .cm{color:#8E9AAF}
+.placards{display:flex;flex-direction:column;gap:10px}
+.plc{border-radius:12px;padding:10px 14px;background:var(--card);border:2px solid var(--line);display:none}
+.plc.show{display:block}
+.plc.cur{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-lt)}
+.plc h3{margin:0 0 .25em;font-size:1.02rem;color:var(--teal)}
+.plc p{margin:.2em 0;font-size:.95rem}
+.stepnav{display:flex;gap:8px;align-items:center;margin:8px 0 4px}
+.stepnav .cnt{color:var(--muted);font-size:.85rem;font-weight:700}
+.big{font-size:1.6rem;font-weight:800}
+.muted{color:var(--muted)}
+.pill{display:inline-block;padding:.12em .6em;border-radius:999px;font-size:.8rem;font-weight:700;background:var(--teal-lt);color:var(--teal)}
+.pill.coral{background:var(--coral-lt);color:var(--coral)}.pill.amber{background:var(--amber-lt);color:var(--amber)}.pill.purple{background:var(--purple-lt);color:var(--purple)}
+table.t{border-collapse:separate;border-spacing:4px;font-size:.92rem}
+table.t th{background:#14202B;color:#fff;padding:.3em .55em;border-radius:6px;font-weight:700;text-align:center}
+table.t td{padding:.3em .55em;border-radius:6px;background:var(--bg);text-align:center;min-width:2.6em}
+table.t td.lbl{font-weight:700;text-align:left;background:transparent}
+.scroll{overflow-x:auto;max-width:100%}
+svg text{font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif}
+.note{font-size:.85rem;color:var(--muted);margin-top:.5em}
+.kbd{display:inline-block;border:1.5px solid var(--line);border-radius:5px;padding:0 .35em;font-size:.8rem;font-weight:700}
+.themebtn{position:fixed;top:10px;right:12px;font:inherit;font-size:.8rem;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:.2em .6em;cursor:pointer}
+
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="kicker">TARA · RLHF · demo 04</div>
+  <h1>Train a tiny "GPT" to write periods</h1>
+  <p class="sub">A toy model writes <b>"This is"</b> + 4 chunks. Reward = number of periods. Objective = reward − <b>kl_coef</b> × KL to the frozen original, like the notebook. Text pieces are borrowed from the notebook's real samples.</p>
+  <div class="tabs"><button data-tab="t1" class="on">1 · Train it</button><button data-tab="t2">2 · Where training ends up</button></div>
+  <section class="tab on" id="t1">
+    <div class="grid">
+      <div class="stage">
+        <div class="row">
+          <label class="ctl">kl_coef <input type="range" id="kc" min="0" max="10" step="0.5" value="2.5"><span id="kcv" class="big" style="font-size:1.2rem">2.5</span></label>
+          <button class="btn ghost" data-k="0">0</button><button class="btn ghost" data-k="2.5">2.5</button><button class="btn ghost" data-k="10">10</button>
+        </div>
+        <div class="row">
+          <button class="btn" id="run">▶ Run 100 phases</button>
+          <button class="btn ghost" id="one">+1 phase</button>
+          <button class="btn coral" id="reset">Reset to the original</button>
+          <span class="muted" id="phase">phase 0</span>
+        </div>
+        <div class="row" style="gap:18px;align-items:flex-start">
+          <div style="flex:1;min-width:260px"><b style="color:var(--teal)">mean reward</b><svg id="cr" viewBox="0 0 420 170" style="width:100%"></svg></div>
+          <div style="flex:1;min-width:260px"><b style="color:var(--coral)">KL to the original</b> <span class="muted">(mean per chunk)</span><svg id="ck" viewBox="0 0 420 170" style="width:100%"></svg></div>
+        </div>
+        <h2 style="margin-top:6px">Samples this phase <span class="muted" style="font-size:.8rem">(like the notebook's print-out)</span></h2>
+        <div class="scroll"><table class="t" id="samples" style="width:100%"></table></div>
+        <h2>The policy, chunk by chunk <span class="muted" style="font-size:.8rem">filled = now · outline = original</span></h2>
+        <div id="slots" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:10px"></div>
+      </div>
+      <div class="panel" id="p1">
+        <div class="placards">
+          <div class="plc"><h3>1 · The toy model</h3><p>Each chunk is picked from 5 options. The <b>outline</b> bars are the frozen original's probabilities: most likely are plain phrases, least likely the "Not......" junk.</p></div>
+          <div class="plc"><h3>2 · One phase</h3><p>Sample 32 texts → count periods → normalise over the batch → push up the chunks used in above-average texts, minus <code>kl_coef</code> × the KL gradient. (A simplified PPO step, no critic.)</p></div>
+          <div class="plc"><h3>3 · kl_coef = 0</h3><p>Press <b>0</b>, Reset, Run. Reward shoots up, KL shoots up, and the text turns into period spam like <b>"Not........."</b>. The ref log-prob column falls: the original would never write this. In the notebook: 1.3 → 20 in 30 phases.</p></div>
+          <div class="plc"><h3>4 · kl_coef = 2.5</h3><p>Press <b>2.5</b>, Reset, Run. Reward rises a little, KL stays small. The chunks that grow are the ones the original <b>already liked</b>: "a rush transcript.", "Copy may not be in its final form.", "we turn now to the U.S." Periods that cost little KL. In the notebook this narrowed into one favourite text: mode collapse.</p></div>
+          <div class="plc"><h3>5 · kl_coef = 10</h3><p>The penalty is so strong the model barely moves from the original.</p></div>
+          <div class="plc"><h3>6 · RL only reinforces what it tries</h3><p>Run kl_coef = 0 a few times. Each run can end somewhere different (e.g. <b>"a.k.a. A-man."</b> instead of the junk in one chunk): whatever got sampled and rewarded first wins.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="tab" id="t2">
+    <div class="grid">
+      <div class="stage">
+        <label class="ctl">penalty weight (like kl_coef) <input type="range" id="beta" min="-1.5" max="1" step="0.05" value="0"><span id="betav" class="big" style="font-size:1.2rem">1.00</span></label>
+        <div class="row" id="optStats"></div>
+        <div class="panel" id="optText" style="margin:8px 0"></div>
+        <div id="optSlots" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:10px"></div>
+      </div>
+      <div class="panel" id="p2">
+        <div class="placards">
+          <div class="plc"><h3>1 · Where long training ends up</h3><p>For each penalty weight, the solid bars show where training settles if you run it long enough. The dashed outline is the original GPT-2.</p></div>
+          <div class="plc"><h3>2 · Slide the weight down</h3><p>Small weight: the reward dominates. The highest-reward chunk wins even if the original almost never wrote it: <b>junk</b>.</p></div>
+          <div class="plc"><h3>3 · Slide the weight up</h3><p>Large weight: the result stays at the original GPT-2. Nothing changes.</p></div>
+          <div class="plc"><h3>4 · In between</h3><p>Options that are <b>likely under the original AND score well</b> win. That is why the rush transcript appears.</p><p class="muted">This toy uses raw period counts, so its weight is not on the same scale as the notebook's kl_coef.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+<script>
+// shared helpers: tabs, placards with keyboard, theme toggle
+function $(s, r) { return (r || document).querySelector(s); }
+function $$(s, r) { return Array.from((r || document).querySelectorAll(s)); }
+function el(tag, attrs, html) { const e = document.createElement(tag); if (attrs) for (const k in attrs) { if (k === 'class') e.className = attrs[k]; else if (k === 'style') e.style.cssText = attrs[k]; else e.setAttribute(k, attrs[k]); } if (html != null) e.innerHTML = html; return e; }
+const SVGNS = 'http://www.w3.org/2000/svg';
+function sv(tag, attrs, text) { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; }
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function setupTabs(onChange) {
+  const btns = $$('.tabs button[data-tab]');
+  btns.forEach((b) => b.addEventListener('click', () => {
+    btns.forEach((x) => x.classList.toggle('on', x === b));
+    $$('section.tab').forEach((s) => s.classList.toggle('on', s.id === b.dataset.tab));
+    if (onChange) onChange(b.dataset.tab);
+  }));
+}
+// placards: container with .plc children; shows first n; returns controller
+function placards(root, onStep) {
+  const cards = $$('.plc', root);
+  const nav = el('div', { class: 'stepnav' });
+  const back = el('button', { class: 'btn ghost' }, '◀ Back');
+  const next = el('button', { class: 'btn' }, 'Next ▶');
+  const cnt = el('span', { class: 'cnt' });
+  nav.append(back, next, cnt);
+  root.prepend(nav);
+  let n = 1;
+  function render() {
+    cards.forEach((c, i) => { c.classList.toggle('show', i < n); c.classList.toggle('cur', i === n - 1); });
+    cnt.textContent = n + ' / ' + cards.length + '   (← → keys)';
+    back.disabled = n <= 1; next.disabled = n >= cards.length;
+    if (onStep) onStep(n);
+  }
+  back.onclick = () => { if (n > 1) { n--; render(); } };
+  next.onclick = () => { if (n < cards.length) { n++; render(); } };
+  render();
+  return { go(k) { n = Math.max(1, Math.min(cards.length, k)); render(); }, get n() { return n; }, root, next: () => next.onclick(), back: () => back.onclick() };
+}
+function keyNav(getCtl) {
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    const c = getCtl(); if (!c) return;
+    if (e.key === 'ArrowRight') { c.next(); e.preventDefault(); }
+    if (e.key === 'ArrowLeft') { c.back(); e.preventDefault(); }
+  });
+}
+function themeToggle() {
+  const b = el('button', { class: 'themebtn', title: 'Light / dark' }, '◐ theme');
+  b.onclick = () => {
+    const r = document.documentElement;
+    const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    r.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('tara-theme', r.dataset.theme); } catch (e) { }
+    window.dispatchEvent(new Event('themechange'));
+  };
+  try { const t = localStorage.getItem('tara-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) { }
+  document.body.append(b);
+}
+function fmt(x, d) { d = d == null ? 2 : d; const s = (Math.abs(x) < 0.005 && d <= 2) ? (0).toFixed(d) : x.toFixed(d); return (x > 0.0049 ? '+' : '') + s; }
+function rng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
+
+</script>
+<script>
+const SL = [
+  [[' a list of characters', .3], [' a guest post', .25], [' a rush transcript.', .3], [' Python 2.7.12.', .06], [' not going to happen. Not......', .015]],
+  [[' from the series', .3], [' by a reporter', .25], [' Copy may not be in its final form.', .3], [' by Dr. C. S. Lewis.', .06], [' Not.........', .015]],
+  [[' and it was', .3], [' so we need', .25], [' AMY GOODMAN: Well,', .3], [' in the U.S.', .06], [' Not.... Not....', .015]],
+  [[' good.', .3], [' to talk', .25], [' we turn now to the U.S.', .3], [' a.k.a. A-man.', .06], [' Not today......', .015]],
+];
+const per = (t) => (t.match(/\./g) || []).length;
+SL.forEach((s) => { const z = s.reduce((a, x) => a + x[1], 0); s.forEach((x) => (x[1] /= z)); });
+const Q = SL.map((s) => s.map((x) => x[1]));
+const sm = (th) => { const m = Math.max(...th); const p = th.map((t) => Math.exp(t - m)); const z = p.reduce((a, b) => a + b); return p.map((x) => x / z); };
+let th, H, R, ph, timer = null, lastBatch = [], seed = 1;
+const LR = 1.5, B = 32, NPH = 100;
+function reset() { th = Q.map((q) => q.map(Math.log)); H = []; ph = 0; seed++; R = rng(seed * 7919); lastBatch = sampleBatch(th.map(sm)).slice(0, 3); stop(); draw(); }
+function sampleBatch(P) {
+  const out = [];
+  for (let b = 0; b < B; b++) {
+    const ch = P.map((p) => { let u = R(), a = 0; for (let i = 0; i < p.length; i++) { a += p[i]; if (u <= a) return i; } return p.length - 1; });
+    const r = ch.reduce((a, c, j) => a + per(SL[j][c][0]), 0);
+    const lq = ch.reduce((a, c, j) => a + Math.log(Q[j][c]), 0);
+    out.push({ ch, r, lq });
+  }
+  return out;
+}
+function phase() {
+  const kc = +$('#kc').value;
+  const P = th.map(sm);
+  const bat = sampleBatch(P);
+  const rs = bat.map((b) => b.r), mu = rs.reduce((a, b) => a + b) / B;
+  const sd = Math.sqrt(rs.reduce((a, b) => a + (b - mu) ** 2, 0) / (B - 1));
+  const A = rs.map((r) => (r - mu) / (sd + 1e-5));
+  let klm = 0;
+  for (let j = 0; j < SL.length; j++) {
+    const p = P[j], q = Q[j];
+    const kl = p.reduce((a, pi, i) => a + pi * Math.log(pi / q[i]), 0); klm += kl / SL.length;
+    const g = p.map(() => 0);
+    bat.forEach((b, k) => { for (let i = 0; i < p.length; i++) g[i] += A[k] * ((i === b.ch[j]) - p[i]) / B; });
+    for (let i = 0; i < p.length; i++) th[j][i] += LR * (g[i] - kc / SL.length * p[i] * (Math.log(p[i] / q[i]) - kl));
+  }
+  ph++; H.push([mu, klm]); lastBatch = bat.slice(0, 3);
+}
+function stop() { if (timer) { clearInterval(timer); timer = null; } $('#run').textContent = '▶ Run 100 phases'; }
+$('#run').onclick = () => {
+  if (timer) { stop(); return; }
+  let n = 0; $('#run').textContent = '⏸ Pause';
+  timer = setInterval(() => { phase(); n++; draw(); if (n >= NPH) stop(); }, 45);
+};
+$('#one').onclick = () => { phase(); draw(); };
+$('#reset').onclick = reset;
+$('#kc').oninput = () => { $('#kcv').textContent = (+$('#kc').value).toFixed(1); };
+$$('button[data-k]').forEach((b) => (b.onclick = () => { $('#kc').value = b.dataset.k; $('#kc').oninput(); reset(); }));
+function chart(svg, ys, color, ymin, ymax) {
+  svg.innerHTML = '';
+  const W = 420, Hh = 170, L = 38, Bm = 22, T = 8;
+  const mu = css('--muted'), ln = css('--line');
+  ymax = Math.max(ymax, ...ys, ymin + 1e-6);
+  svg.append(sv('line', { x1: L, y1: Hh - Bm, x2: W - 6, y2: Hh - Bm, stroke: ln, 'stroke-width': 1.5 }));
+  svg.append(sv('line', { x1: L, y1: T, x2: L, y2: Hh - Bm, stroke: ln, 'stroke-width': 1.5 }));
+  [ymin, (ymin + ymax) / 2, ymax].forEach((v) => {
+    const y = Hh - Bm - (v - ymin) / (ymax - ymin) * (Hh - Bm - T);
+    svg.append(sv('text', { x: L - 5, y: y + 5, 'text-anchor': 'end', 'font-size': 13, fill: mu }, v >= 10 ? v.toFixed(0) : v.toFixed(1)));
+  });
+  svg.append(sv('text', { x: W - 6, y: Hh - 4, 'text-anchor': 'end', 'font-size': 13, fill: mu }, 'phase'));
+  if (!ys.length) return;
+  const n = Math.max(NPH, ys.length);
+  const pts = ys.map((v, i) => (L + (i + 1) / n * (W - L - 8)) + ',' + (Hh - Bm - (v - ymin) / (ymax - ymin) * (Hh - Bm - T))).join(' ');
+  svg.append(sv('polyline', { points: pts, fill: 'none', stroke: color, 'stroke-width': 3, 'stroke-linejoin': 'round' }));
+  const lv = ys[ys.length - 1];
+  svg.append(sv('text', { x: W - 8, y: 24, 'text-anchor': 'end', 'font-size': 18, 'font-weight': 700, fill: color }, lv.toFixed(2)));
+}
+function draw() {
+  $('#phase').textContent = 'phase ' + ph;
+  chart($('#cr'), H.map((h) => h[0]), css('--teal'), 0, 10);
+  chart($('#ck'), H.map((h) => h[1]), css('--coral'), 0, 1);
+  const tb = $('#samples'); tb.innerHTML = '<tr><th>Reward</th><th>Ref log-prob</th><th style="text-align:left">Sample</th></tr>';
+  lastBatch.forEach((b) => {
+    const text = 'This is' + b.ch.map((c, j) => SL[j][c][0]).join('');
+    tb.append(el('tr', {}, '<td><b>' + b.r + '</b></td><td>' + b.lq.toFixed(1) + '</td><td style="text-align:left">"' + text + '"</td>'));
+  });
+  const P = th.map(sm), box = $('#slots'); box.innerHTML = '';
+  P.forEach((p, j) => box.append(slotChart('chunk ' + (j + 1), p, Q[j], SL[j])));
+}
+function slotChart(title, p, q, opts) {
+  const d = el('div', { class: 'panel', style: 'padding:8px 10px' });
+  d.append(el('div', { style: 'font-weight:700;font-size:.85rem;color:var(--muted)' }, title));
+  const s = sv('svg', { viewBox: '0 0 420 150', style: 'width:100%' });
+  const ink = css('--ink'), teal = css('--teal'), coral = css('--coral'), mu = css('--muted');
+  opts.forEach(([t], i) => {
+    const y = 4 + i * 29, k = per(t);
+    s.append(sv('text', { x: 200, y: y + 19, 'text-anchor': 'end', 'font-size': 16, fill: ink }, (t.length > 24 ? t.slice(0, 23) + '…' : t)));
+    s.append(sv('rect', { x: 206, y: y + 4, width: Math.max(1.5, q[i] * 170), height: 18, fill: 'none', stroke: mu, 'stroke-width': 1.5, 'stroke-dasharray': '4 3', rx: 3 }));
+    s.append(sv('rect', { x: 206, y: y + 7, width: Math.max(1.5, p[i] * 170), height: 12, fill: k >= 5 ? coral : teal, rx: 3 }));
+    s.append(sv('text', { x: 412, y: y + 18, 'text-anchor': 'end', 'font-size': 16, 'font-weight': 700, fill: mu }, (p[i] * 100).toFixed(0) + '%'));
+  });
+  d.append(s); return d;
+}
+// tab 2: closed form
+function drawOpt() {
+  const beta = Math.pow(10, +$('#beta').value); $('#betav').textContent = beta.toFixed(2);
+  let Er = 0, KL = 0, text = 'This is';
+  const box = $('#optSlots'); box.innerHTML = '';
+  SL.forEach((opts, j) => {
+    const lw = opts.map(([t, q]) => Math.log(q) + per(t) / beta);
+    const p = sm(lw);
+    Er += p.reduce((a, pi, i) => a + pi * per(opts[i][0]), 0);
+    KL += p.reduce((a, pi, i) => a + (pi > 1e-12 ? pi * Math.log(pi / Q[j][i]) : 0), 0);
+    text += opts[p.indexOf(Math.max(...p))][0];
+    box.append(slotChart('chunk ' + (j + 1), p, Q[j], opts));
+  });
+  $('#optStats').innerHTML = '<span class="pill">expected reward ' + Er.toFixed(1) + '</span> <span class="pill coral">KL (summed) ' + KL.toFixed(2) + '</span>';
+  $('#optText').innerHTML = '<b>Most likely text:</b> "' + text + '"';
+}
+$('#beta').oninput = drawOpt;
+const P1 = placards($('#p1')), P2 = placards($('#p2'));
+let cur = 't1';
+setupTabs((t) => { cur = t; if (t === 't2') drawOpt(); });
+keyNav(() => (cur === 't1' ? P1 : P2));
+themeToggle();
+window.addEventListener('themechange', () => { draw(); drawOpt(); });
+reset(); drawOpt();
+</script>
+
+</body>
+</html>

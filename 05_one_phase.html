@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>One RLHF phase</title>
+<style>
+:root{--teal:#0E7C7B;--teal-lt:#DCEEED;--coral:#D2491F;--coral-lt:#FBE4DC;--purple:#6C4AB6;--purple-lt:#EAE3F7;--amber:#A86C10;--amber-lt:#FDF1D6;--blue:#2B5C9E;--blue-lt:#E1EAF6;--ink:#1A1A1A;--muted:#4F5A63;--line:#C9D0D5;--bg:#F2F4F5;--code:#1E1E2E;--grey:#8A949C;--card:#fff;--page:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ink:#ECEFF2;--muted:#AEB7BF;--line:#3B4650;--bg:#1F2830;--card:#182029;--page:#11181F;--teal-lt:#123B3B;--coral-lt:#47231A;--purple-lt:#2C2343;--amber-lt:#3D2E12;--blue-lt:#1B2D45;color-scheme:dark}}
+:root[data-theme="dark"]{--ink:#ECEFF2;--muted:#AEB7BF;--line:#3B4650;--bg:#1F2830;--card:#182029;--page:#11181F;--teal-lt:#123B3B;--coral-lt:#47231A;--purple-lt:#2C2343;--amber-lt:#3D2E12;--blue-lt:#1B2D45;color-scheme:dark}
+*{box-sizing:border-box}
+html{font-size:21px}
+@media (min-width:1700px){html{font-size:24px}}
+@media (max-width:900px){html{font-size:16px}}
+body{font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif;margin:0;background:var(--page);color:var(--ink);line-height:1.35}
+.wrap{max-width:1800px;margin:0 auto;padding:20px 32px 40px}
+@media (max-width:700px){.wrap{padding:14px 16px 30px}}
+.kicker{font-size:.78rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+h1{font-size:1.9rem;margin:.1em 0 .1em}
+h2{font-size:1.25rem;margin:.2em 0 .4em}
+.sub{color:var(--muted);font-size:1.02rem;margin:0 0 .6rem}
+.tabs{display:flex;flex-wrap:wrap;gap:10px;margin:.4rem 0 1rem;align-items:center}
+.tabs button{font:inherit;font-size:.95rem;font-weight:700;padding:.42rem .9rem;border-radius:12px;border:2px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.tabs button.on{background:var(--teal);border-color:var(--teal);color:#fff}
+section.tab{display:none}section.tab.on{display:block}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:24px;align-items:start}
+@media (max-width:1100px){.grid{grid-template-columns:1fr}}
+.grid.wide{grid-template-columns:minmax(0,2fr) minmax(300px,1fr)}
+@media (max-width:1100px){.grid.wide{grid-template-columns:1fr}}
+table.t.compact{font-size:.82rem;border-spacing:3px}table.t.compact td{min-width:1.8em;padding:.25em .35em}table.t.compact .tok{font-size:.82rem;padding:.12em .3em;margin:0}
+.stage{border:2px solid var(--line);border-radius:16px;padding:14px;background:var(--card);min-width:0}
+.panel{border-radius:16px;padding:14px 16px;background:var(--bg);min-width:0}
+.btn{font:inherit;font-size:.92rem;font-weight:700;padding:.45rem .85rem;border-radius:10px;border:2px solid var(--teal);background:var(--teal);color:#fff;cursor:pointer;margin:2px 4px 2px 0}
+.btn.ghost{background:transparent;color:var(--teal)}
+.btn.coral{background:var(--coral);border-color:var(--coral)}
+.btn.purple{background:var(--purple);border-color:var(--purple)}
+.btn:disabled{opacity:.4;cursor:default}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+label.ctl{display:flex;gap:10px;align-items:center;font-weight:700;font-size:.92rem;margin:6px 0;flex-wrap:wrap}
+input[type=range]{width:220px;accent-color:var(--teal)}
+.tok{display:inline-flex;align-items:center;justify-content:center;min-width:1.6em;padding:.18em .45em;border:2px solid var(--line);border-radius:8px;background:var(--card);font-size:.95rem;white-space:pre;margin:2px}
+.tok.pre{background:var(--bg)}
+.tok.gen{background:var(--teal-lt);border-color:var(--teal)}
+.tok.new{background:var(--coral);border-color:var(--coral);color:#fff}
+.mono{font-family:Consolas,"Courier New",monospace}
+code,.code{font-family:Consolas,"Courier New",monospace;font-size:.9em}
+pre.code{background:var(--code);color:#E6E6EF;border-radius:12px;padding:12px 14px;overflow-x:auto;font-size:.85rem;line-height:1.4;margin:.5em 0}
+pre.code .hl{color:#FFD479;font-weight:700}pre.code .cm{color:#8E9AAF}
+.placards{display:flex;flex-direction:column;gap:10px}
+.plc{border-radius:12px;padding:10px 14px;background:var(--card);border:2px solid var(--line);display:none}
+.plc.show{display:block}
+.plc.cur{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-lt)}
+.plc h3{margin:0 0 .25em;font-size:1.02rem;color:var(--teal)}
+.plc p{margin:.2em 0;font-size:.95rem}
+.stepnav{display:flex;gap:8px;align-items:center;margin:8px 0 4px}
+.stepnav .cnt{color:var(--muted);font-size:.85rem;font-weight:700}
+.big{font-size:1.6rem;font-weight:800}
+.muted{color:var(--muted)}
+.pill{display:inline-block;padding:.12em .6em;border-radius:999px;font-size:.8rem;font-weight:700;background:var(--teal-lt);color:var(--teal)}
+.pill.coral{background:var(--coral-lt);color:var(--coral)}.pill.amber{background:var(--amber-lt);color:var(--amber)}.pill.purple{background:var(--purple-lt);color:var(--purple)}
+table.t{border-collapse:separate;border-spacing:4px;font-size:.92rem}
+table.t th{background:#14202B;color:#fff;padding:.3em .55em;border-radius:6px;font-weight:700;text-align:center}
+table.t td{padding:.3em .55em;border-radius:6px;background:var(--bg);text-align:center;min-width:2.6em}
+table.t td.lbl{font-weight:700;text-align:left;background:transparent}
+.scroll{overflow-x:auto;max-width:100%}
+svg text{font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif}
+.note{font-size:.85rem;color:var(--muted);margin-top:.5em}
+.kbd{display:inline-block;border:1.5px solid var(--line);border-radius:5px;padding:0 .35em;font-size:.8rem;font-weight:700}
+.themebtn{position:fixed;top:10px;right:12px;font:inherit;font-size:.8rem;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:.2em .6em;cursor:pointer}
+
+</style>
+</head>
+<body>
+
+<style>#plc .plc.show:not(.cur){display:none} #plc pre.code{font-size:.7rem} @media (min-width:1101px){.grid.wide{grid-template-columns:minmax(0,1.25fr) minmax(0,1.2fr)}}</style>
+<div class="wrap">
+  <div class="kicker">TARA · RLHF · demo 05</div>
+  <h1>One RLHF phase, line by line</h1>
+  <p class="sub"><code>RLHFTrainer.train()</code> runs 100 phases. One phase = <code>rollout_phase()</code> then <code>learning_phase()</code>. Step through it: every line shows the tensor it makes, its shape, and what last week's PPO did instead. Default <code>RLHFArgs</code>: batch 128, prefix "This is" (3 tokens), <code>gen_len</code> 30.</p>
+  <div class="grid wide">
+    <div class="stage">
+      <svg id="mem" viewBox="0 0 560 490" style="width:100%;max-height:62vh;display:block"></svg>
+      <div class="row" style="gap:12px;margin-top:10px;align-items:stretch">
+        <div class="panel" style="flex:1;min-width:240px;border:2px solid var(--teal)"><div style="font-weight:700;color:var(--teal);font-size:.85rem">THIS LINE</div><div id="now"></div></div>
+        <div class="panel" style="flex:1;min-width:240px"><div style="font-weight:700;color:var(--muted);font-size:.85rem">LAST WEEK · PPO ON CARTPOLE</div><div id="was" class="muted"></div></div>
+      </div>
+    </div>
+    <div class="panel" id="plc">
+      <div class="placards" id="steps"></div>
+    </div>
+  </div>
+</div>
+<script>
+// shared helpers: tabs, placards with keyboard, theme toggle
+function $(s, r) { return (r || document).querySelector(s); }
+function $$(s, r) { return Array.from((r || document).querySelectorAll(s)); }
+function el(tag, attrs, html) { const e = document.createElement(tag); if (attrs) for (const k in attrs) { if (k === 'class') e.className = attrs[k]; else if (k === 'style') e.style.cssText = attrs[k]; else e.setAttribute(k, attrs[k]); } if (html != null) e.innerHTML = html; return e; }
+const SVGNS = 'http://www.w3.org/2000/svg';
+function sv(tag, attrs, text) { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; }
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function setupTabs(onChange) {
+  const btns = $$('.tabs button[data-tab]');
+  btns.forEach((b) => b.addEventListener('click', () => {
+    btns.forEach((x) => x.classList.toggle('on', x === b));
+    $$('section.tab').forEach((s) => s.classList.toggle('on', s.id === b.dataset.tab));
+    if (onChange) onChange(b.dataset.tab);
+  }));
+}
+// placards: container with .plc children; shows first n; returns controller
+function placards(root, onStep) {
+  const cards = $$('.plc', root);
+  const nav = el('div', { class: 'stepnav' });
+  const back = el('button', { class: 'btn ghost' }, '◀ Back');
+  const next = el('button', { class: 'btn' }, 'Next ▶');
+  const cnt = el('span', { class: 'cnt' });
+  nav.append(back, next, cnt);
+  root.prepend(nav);
+  let n = 1;
+  function render() {
+    cards.forEach((c, i) => { c.classList.toggle('show', i < n); c.classList.toggle('cur', i === n - 1); });
+    cnt.textContent = n + ' / ' + cards.length + '   (← → keys)';
+    back.disabled = n <= 1; next.disabled = n >= cards.length;
+    if (onStep) onStep(n);
+  }
+  back.onclick = () => { if (n > 1) { n--; render(); } };
+  next.onclick = () => { if (n < cards.length) { n++; render(); } };
+  render();
+  return { go(k) { n = Math.max(1, Math.min(cards.length, k)); render(); }, get n() { return n; }, root, next: () => next.onclick(), back: () => back.onclick() };
+}
+function keyNav(getCtl) {
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    const c = getCtl(); if (!c) return;
+    if (e.key === 'ArrowRight') { c.next(); e.preventDefault(); }
+    if (e.key === 'ArrowLeft') { c.back(); e.preventDefault(); }
+  });
+}
+function themeToggle() {
+  const b = el('button', { class: 'themebtn', title: 'Light / dark' }, '◐ theme');
+  b.onclick = () => {
+    const r = document.documentElement;
+    const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    r.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('tara-theme', r.dataset.theme); } catch (e) { }
+    window.dispatchEvent(new Event('themechange'));
+  };
+  try { const t = localStorage.getItem('tara-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) { }
+  document.body.append(b);
+}
+function fmt(x, d) { d = d == null ? 2 : d; const s = (Math.abs(x) < 0.005 && d <= 2) ? (0).toFixed(d) : x.toFixed(d); return (x > 0.0049 ? '+' : '') + s; }
+function rng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
+
+</script>
+<script>
+const CODE = [
+  'def rollout_phase(self):        # no grads',
+  '  sample_ids, samples = get_samples(...)',
+  '  with t.inference_mode():',
+  '    logits, values = \\',
+  '        model.forward_with_value_head(sample_ids)',
+  '    ref_logits = ref_model(sample_ids)',
+  '  logprobs = get_logprobs(logits, sample_ids, prefix_len)',
+  '  rewards = normalize_reward(reward_fn(samples))',
+  '  advantages = compute_advantages(values, rewards,',
+  '                                  prefix_len)',
+  '  return ReplayMemory(sample_ids, logprobs, advantages,',
+  '                      values, ref_logits)',
+  '',
+  'def learning_phase(self, memory):',
+  '  for mb in memory.get_minibatches(): # 8',
+  '    optimizer.zero_grad()',
+  '    objective = self.compute_rlhf_objective(mb)',
+  '    objective.backward()',
+  '    clip_grad_norm_(model.parameters(), 1.0)',
+  '    optimizer.step()',
+  '  scheduler.step()     # once per phase',
+];
+const STEPS = [
+  { h: 'Sample 128 texts', lines: [1], now: '<code>sample_ids</code> <b>(128, 33)</b>: 3 prompt tokens + 30 generated. <code>samples</code>: the same 128 texts as strings.', was: 'play 32 envs × 500 steps → states, actions, rewards, dones.', show: ['ids'] },
+  { h: 'One forward pass, two outputs', lines: [2, 3, 4], now: '<code>logits</code> <b>(128, 33, 50257)</b> and <code>values</code> <b>(128, 33)</b>, from the value-head hook. No gradients: we only record.', was: 'the actor gave log π_old; a <b>separate</b> critic network gave V(state).', show: ['ids', 'logits', 'values'] },
+  { h: 'The frozen original', lines: [5], now: '<code>ref_logits</code> <b>(128, 33, 50257)</b>: what the original GPT-2 would have predicted. Stored for the KL penalty.', was: '<b>nothing like this.</b> New today.', show: ['ids', 'logits', 'values', 'ref'], isNew: 'ref' },
+  { h: 'Log-probs of the chosen tokens', lines: [6], now: '<code>logprobs</code> <b>(128, 30)</b>: one per generated token. Becomes π_old in the ratio.', was: 'the same: store log π_old(action) for every cell.', show: ['ids', 'logits', 'values', 'ref', 'lp'] },
+  { h: 'One reward per text', lines: [7], now: '<code>rewards</code> <b>(128,)</b>: count the periods in each text, then normalise over the batch.', was: '+1 every step, inside the game. No normalising.', show: ['ids', 'logits', 'values', 'ref', 'lp', 'rew'], isNew: 'rew' },
+  { h: 'A score for every token', lines: [8, 9], now: '<code>advantages</code> <b>(128, 30)</b> = V(next) − V(now), with the reward on the last token.', was: 'GAE with γ and λ, walking backwards.', show: ['ids', 'logits', 'values', 'ref', 'lp', 'rew', 'adv'], isNew: 'adv' },
+  { h: 'Store it all', lines: [10, 11], now: '<code>ReplayMemory</code> keeps 5 tensors. No actions (they are inside <code>sample_ids</code>), no dones (every text is 30 tokens). <code>logits</code> is not kept.', was: 'stored states, actions, logp_old, values, advantages, dones.', show: ['ids', 'values', 'ref', 'lp', 'adv'], mem: true },
+  { h: 'Shuffle into minibatches', lines: [14], now: '128 texts → random order → 4 minibatches of 32. Twice (<code>batches_per_learning_phase = 2</code>): <b>8 updates</b>.', was: '4 passes × 4 random chunks = 16 updates.', mb: 0 },
+  { h: 'One update', lines: [15, 16, 17, 18, 19], now: 'Forward pass <b>with</b> gradients on 32 texts → ratio vs stored log-probs, clipped term − value loss + entropy − <b>KL vs stored ref_logits</b> → backward → clip grad norm 1.0 → step.', was: 'the same, without the KL term.', mb: 1 },
+  { h: '…8 times, then the scheduler', lines: [20], now: 'After all 8 minibatches: <code>scheduler.step()</code> <b>once</b>. Memory is thrown away; the next phase samples fresh texts with the updated GPT-2.', was: 'throw the games away, play again.', mb: 8 },
+];
+const ROWS = 128;
+function shuffled(seed) { const r = rng(seed), a = Array.from({ length: ROWS }, (_, i) => i); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const ORD = [shuffled(3), shuffled(9)];
+let cur = 0;
+function drawCode() {
+  const st = STEPS[cur];
+  const code = CODE.map((l, i) => {
+    const e = l.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/(#.*)$/, '<span class="cm">$1</span>');
+    return st.lines.includes(i) ? '<span class="hl">' + e + '</span>' : e;
+  }).join('\n');
+  const card = $$('#plc .plc')[cur];
+  card.innerHTML = '<h3>' + (cur + 1) + ' / ' + STEPS.length + ' · ' + st.h + '</h3><pre class="code">' + code + '</pre>';
+  $('#now').innerHTML = st.now; $('#was').innerHTML = st.was;
+}
+function block(svg, x, y, w, h, fill, label, shape, opts) {
+  opts = opts || {};
+  if (opts.depth) for (let k = 3; k >= 1; k--) svg.append(sv('rect', { x: x + k * 6, y: y - k * 6, width: w, height: h, rx: 4, fill, opacity: 0.35, stroke: css('--line') }));
+  svg.append(sv('rect', { x, y, width: w, height: h, rx: 4, fill, stroke: opts.hot ? css('--coral') : css('--line'), 'stroke-width': opts.hot ? 4 : 1.5 }));
+  svg.append(sv('text', { x: x + 8, y: y + 22, 'font-size': 17, 'font-weight': 700, fill: '#fff' }, label));
+  svg.append(sv('text', { x: x + 8, y: y + 42, 'font-size': 14, fill: '#fff' }, shape));
+  if (opts.tag) svg.append(sv('text', { x: x + w - 6, y: y + 22, 'text-anchor': 'end', 'font-size': 13, 'font-weight': 700, fill: '#fff' }, opts.tag));
+}
+function drawMem() {
+  const svg = $('#mem'); svg.innerHTML = '';
+  const st = STEPS[cur], teal = css('--teal'), blue = css('--blue'), purple = css('--purple'), amber = css('--amber'), coral = css('--coral'), mu = css('--muted'), grey = css('--grey'), ink = css('--ink');
+  if (st.mb == null) {
+    const has = (k) => st.show.includes(k);
+    const hot = (k) => STEPS[cur].show.includes(k) && (cur === 0 || !STEPS[cur - 1].show.includes(k) || st.isNew === k);
+    svg.append(sv('text', { x: 0, y: 18, 'font-size': 15, 'font-weight': 700, fill: mu }, st.mem ? 'REPLAYMEMORY (what survives the rollout)' : 'TENSORS SO FAR'));
+    // sample ids: grid
+    if (has('ids')) {
+      svg.append(sv('text', { x: 0, y: 46, 'font-size': 15, 'font-weight': 700, fill: ink }, 'sample_ids (128, 33)'));
+      for (let r = 0; r < 16; r++) for (let c = 0; c < 33; c++) svg.append(sv('rect', { x: c * 15, y: 56 + r * 7, width: 13, height: 5, fill: c < 3 ? grey : teal, opacity: hot('ids') ? 1 : 0.7 }));
+      svg.append(sv('text', { x: 0, y: 186, 'font-size': 13, fill: mu }, 'grey = prompt (3) · teal = generated (30) · 16 of 128 rows shown'));
+    }
+    if (has('logits')) block(svg, 0, 210, 250, 60, blue, 'logits', '(128, 33, 50257)', { depth: 1, hot: hot('logits') });
+    if (has('ref')) block(svg, 290, 210, 250, 60, purple, 'ref_logits', '(128, 33, 50257)', { depth: 1, hot: hot('ref'), tag: 'NEW' });
+    if (has('values')) block(svg, 0, 300, 250, 50, teal, 'values', '(128, 33)', { hot: hot('values') });
+    if (has('lp')) block(svg, 290, 300, 250, 50, teal, 'logprobs  (π_old)', '(128, 30)', { hot: hot('lp') });
+    if (has('rew')) block(svg, 0, 380, 120, 50, amber, 'rewards', '(128,)', { hot: hot('rew'), tag: '' });
+    if (has('adv')) block(svg, 160, 380, 250, 50, coral, 'advantages', '(128, 30)', { hot: hot('adv'), tag: 'no GAE' });
+    if (st.mem) svg.append(sv('rect', { x: -2, y: 30, width: 560, height: 412, rx: 10, fill: 'none', stroke: amber, 'stroke-width': 3, 'stroke-dasharray': '8 6' }));
+    if (st.mem) svg.append(sv('text', { x: 0, y: 470, 'font-size': 15, fill: mu }, 'logits are dropped: the learning phase recomputes them with gradients.'));
+  } else {
+    svg.append(sv('text', { x: 0, y: 18, 'font-size': 15, 'font-weight': 700, fill: mu }, 'LEARNING PHASE · 128 texts, each a thin bar'));
+    const cols = [teal, purple, amber, blue];
+    for (let p = 0; p < 2; p++) {
+      const y0 = 50 + p * 200;
+      svg.append(sv('text', { x: 0, y: y0 - 8, 'font-size': 16, 'font-weight': 700, fill: ink }, 'pass ' + (p + 1) + ' · random order'));
+      ORD[p].forEach((row, i) => {
+        const mbi = Math.floor(i / 32), upd = p * 4 + mbi + 1;
+        const active = st.mb === 8 ? true : (st.mb === 1 ? upd === 1 : true);
+        svg.append(sv('rect', { x: i * 4.3, y: y0, width: 3.3, height: 60, fill: cols[mbi], opacity: active ? (st.mb === 1 && upd !== 1 ? 0.25 : 1) : 0.25 }));
+      });
+      for (let m = 0; m < 4; m++) {
+        const upd = p * 4 + m + 1;
+        svg.append(sv('text', { x: m * 137.6 + 68, y: y0 + 86, 'text-anchor': 'middle', 'font-size': 15, 'font-weight': 700, fill: (st.mb === 1 && upd !== 1) ? mu : ink }, 'update ' + upd));
+        svg.append(sv('text', { x: m * 137.6 + 68, y: y0 + 106, 'text-anchor': 'middle', 'font-size': 13, fill: mu }, '32 texts'));
+      }
+    }
+    const msg = st.mb === 0 ? 'Each text appears once per pass: 2 passes × 4 minibatches = 8 updates.' : st.mb === 1 ? 'Update 1: the policy is the one that played, so every ratio = 1.' : '8 updates done → scheduler.step() once → throw memory away.';
+    svg.append(sv('text', { x: 0, y: 470, 'font-size': 16, 'font-weight': 700, fill: st.mb === 8 ? coral : ink }, msg));
+  }
+}
+// placards built from STEPS
+const box = $('#steps');
+STEPS.forEach(() => box.append(el('div', { class: 'plc' }, '')));
+const P = placards($('#plc'), (n) => { cur = n - 1; drawCode(); drawMem(); });
+keyNav(() => P);
+themeToggle();
+window.addEventListener('themechange', () => { drawMem(); });
+</script>
+
+</body>
+</html>

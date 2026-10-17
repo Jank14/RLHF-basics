@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GRPO and LoRA</title>
+<style>
+:root{--teal:#0E7C7B;--teal-lt:#DCEEED;--coral:#D2491F;--coral-lt:#FBE4DC;--purple:#6C4AB6;--purple-lt:#EAE3F7;--amber:#A86C10;--amber-lt:#FDF1D6;--blue:#2B5C9E;--blue-lt:#E1EAF6;--ink:#1A1A1A;--muted:#4F5A63;--line:#C9D0D5;--bg:#F2F4F5;--code:#1E1E2E;--grey:#8A949C;--card:#fff;--page:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ink:#ECEFF2;--muted:#AEB7BF;--line:#3B4650;--bg:#1F2830;--card:#182029;--page:#11181F;--teal-lt:#123B3B;--coral-lt:#47231A;--purple-lt:#2C2343;--amber-lt:#3D2E12;--blue-lt:#1B2D45;color-scheme:dark}}
+:root[data-theme="dark"]{--ink:#ECEFF2;--muted:#AEB7BF;--line:#3B4650;--bg:#1F2830;--card:#182029;--page:#11181F;--teal-lt:#123B3B;--coral-lt:#47231A;--purple-lt:#2C2343;--amber-lt:#3D2E12;--blue-lt:#1B2D45;color-scheme:dark}
+*{box-sizing:border-box}
+html{font-size:21px}
+@media (min-width:1700px){html{font-size:24px}}
+@media (max-width:900px){html{font-size:16px}}
+body{font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif;margin:0;background:var(--page);color:var(--ink);line-height:1.35}
+.wrap{max-width:1800px;margin:0 auto;padding:20px 32px 40px}
+@media (max-width:700px){.wrap{padding:14px 16px 30px}}
+.kicker{font-size:.78rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
+h1{font-size:1.9rem;margin:.1em 0 .1em}
+h2{font-size:1.25rem;margin:.2em 0 .4em}
+.sub{color:var(--muted);font-size:1.02rem;margin:0 0 .6rem}
+.tabs{display:flex;flex-wrap:wrap;gap:10px;margin:.4rem 0 1rem;align-items:center}
+.tabs button{font:inherit;font-size:.95rem;font-weight:700;padding:.42rem .9rem;border-radius:12px;border:2px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.tabs button.on{background:var(--teal);border-color:var(--teal);color:#fff}
+section.tab{display:none}section.tab.on{display:block}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:24px;align-items:start}
+@media (max-width:1100px){.grid{grid-template-columns:1fr}}
+.grid.wide{grid-template-columns:minmax(0,2fr) minmax(300px,1fr)}
+@media (max-width:1100px){.grid.wide{grid-template-columns:1fr}}
+table.t.compact{font-size:.82rem;border-spacing:3px}table.t.compact td{min-width:1.8em;padding:.25em .35em}table.t.compact .tok{font-size:.82rem;padding:.12em .3em;margin:0}
+.stage{border:2px solid var(--line);border-radius:16px;padding:14px;background:var(--card);min-width:0}
+.panel{border-radius:16px;padding:14px 16px;background:var(--bg);min-width:0}
+.btn{font:inherit;font-size:.92rem;font-weight:700;padding:.45rem .85rem;border-radius:10px;border:2px solid var(--teal);background:var(--teal);color:#fff;cursor:pointer;margin:2px 4px 2px 0}
+.btn.ghost{background:transparent;color:var(--teal)}
+.btn.coral{background:var(--coral);border-color:var(--coral)}
+.btn.purple{background:var(--purple);border-color:var(--purple)}
+.btn:disabled{opacity:.4;cursor:default}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+label.ctl{display:flex;gap:10px;align-items:center;font-weight:700;font-size:.92rem;margin:6px 0;flex-wrap:wrap}
+input[type=range]{width:220px;accent-color:var(--teal)}
+.tok{display:inline-flex;align-items:center;justify-content:center;min-width:1.6em;padding:.18em .45em;border:2px solid var(--line);border-radius:8px;background:var(--card);font-size:.95rem;white-space:pre;margin:2px}
+.tok.pre{background:var(--bg)}
+.tok.gen{background:var(--teal-lt);border-color:var(--teal)}
+.tok.new{background:var(--coral);border-color:var(--coral);color:#fff}
+.mono{font-family:Consolas,"Courier New",monospace}
+code,.code{font-family:Consolas,"Courier New",monospace;font-size:.9em}
+pre.code{background:var(--code);color:#E6E6EF;border-radius:12px;padding:12px 14px;overflow-x:auto;font-size:.85rem;line-height:1.4;margin:.5em 0}
+pre.code .hl{color:#FFD479;font-weight:700}pre.code .cm{color:#8E9AAF}
+.placards{display:flex;flex-direction:column;gap:10px}
+.plc{border-radius:12px;padding:10px 14px;background:var(--card);border:2px solid var(--line);display:none}
+.plc.show{display:block}
+.plc.cur{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-lt)}
+.plc h3{margin:0 0 .25em;font-size:1.02rem;color:var(--teal)}
+.plc p{margin:.2em 0;font-size:.95rem}
+.stepnav{display:flex;gap:8px;align-items:center;margin:8px 0 4px}
+.stepnav .cnt{color:var(--muted);font-size:.85rem;font-weight:700}
+.big{font-size:1.6rem;font-weight:800}
+.muted{color:var(--muted)}
+.pill{display:inline-block;padding:.12em .6em;border-radius:999px;font-size:.8rem;font-weight:700;background:var(--teal-lt);color:var(--teal)}
+.pill.coral{background:var(--coral-lt);color:var(--coral)}.pill.amber{background:var(--amber-lt);color:var(--amber)}.pill.purple{background:var(--purple-lt);color:var(--purple)}
+table.t{border-collapse:separate;border-spacing:4px;font-size:.92rem}
+table.t th{background:#14202B;color:#fff;padding:.3em .55em;border-radius:6px;font-weight:700;text-align:center}
+table.t td{padding:.3em .55em;border-radius:6px;background:var(--bg);text-align:center;min-width:2.6em}
+table.t td.lbl{font-weight:700;text-align:left;background:transparent}
+.scroll{overflow-x:auto;max-width:100%}
+svg text{font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif}
+.note{font-size:.85rem;color:var(--muted);margin-top:.5em}
+.kbd{display:inline-block;border:1.5px solid var(--line);border-radius:5px;padding:0 .35em;font-size:.8rem;font-weight:700}
+.themebtn{position:fixed;top:10px;right:12px;font:inherit;font-size:.8rem;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:.2em .6em;cursor:pointer}
+
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="kicker">TARA · RLHF · demo 06</div>
+  <h1>GRPO advantages and LoRA sizes</h1>
+  <p class="sub">Notebook sections 2 and 3. Tab 1: how GRPO scores a group of answers without a critic. Tab 2: how small a LoRA adapter is.</p>
+  <div class="tabs"><button data-tab="t1" class="on">1 · GRPO: a group instead of a critic</button><button data-tab="t2">2 · LoRA: a small add-on</button></div>
+  <section class="tab on" id="t1">
+    <div class="grid">
+      <div class="stage">
+        <h2>8 answers to the same prompt "This is"</h2>
+        <div class="scroll"><table class="t" id="grp" style="width:100%"></table></div>
+        <div class="row" id="gstats" style="margin-top:8px"></div>
+        <h2 style="margin-top:12px">Per-token credit for answer <span id="selN">1</span></h2>
+        <div id="tokcmp"></div>
+        <p class="note">Click a row to pick an answer. Rewards = period counts (edit with − / +).</p>
+      </div>
+      <div class="panel" id="p1">
+        <div class="placards">
+          <div class="plc"><h3>1 · Same prompt, many answers</h3><p>GRPO samples a <b>group</b> of answers to one prompt. In the notebook all 128 samples start from "This is", so the whole batch is one group.</p></div>
+          <div class="plc"><h3>2 · The group is the baseline</h3><p>Advantage = <b>(r − mean) / std</b> over the group: the same <code>normalize_reward</code> you already wrote. Above-average answers get pushed up, below-average down.</p></div>
+          <div class="plc"><h3>3 · Change one reward</h3><p>Press + on one answer: <b>every</b> advantage moves, because the mean and std of the group changed.</p></div>
+          <div class="plc"><h3>4 · Same credit on every token</h3><p>The answer's advantage is copied to all its tokens (<code>einops.repeat(advantages, "b -> b g")</code>). A critic, as in PPO, would instead give credit where the forecast moved: mostly the tokens with periods.</p></div>
+          <div class="plc"><h3>5 · What disappears</h3><p>No value head, no value loss, no <code>compute_advantages</code>. Objective = clipped term + entropy − KL. Cheaper, and a fair "usual" because every answer had the same prompt.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="tab" id="t2">
+    <div class="grid">
+      <div class="stage">
+        <div class="row">
+          <label class="ctl">model <select id="mdl" style="font:inherit;font-size:.9rem"><option value="s">gpt2-small</option><option value="m">gpt2-medium</option></select></label>
+          <label class="ctl">rank r <input type="range" id="rk" min="0" max="6" step="1" value="2"><span id="rkv" class="big" style="font-size:1.2rem">4</span></label>
+          <label class="ctl"><input type="checkbox" id="mlp"> also MLP layers (bonus exercise)</label>
+        </div>
+        <svg id="mat" viewBox="0 0 900 330" style="width:100%;display:block"></svg>
+        <div class="row" id="lstats"></div>
+      </div>
+      <div class="panel" id="p2">
+        <div class="placards">
+          <div class="plc"><h3>1 · Two full copies is too many</h3><p>The RLHF trainer keeps the model being trained <b>and</b> a frozen reference copy, plus optimizer state. For big models that doesn't fit.</p></div>
+          <div class="plc"><h3>2 · Freeze W, learn A and B</h3><p>Every original weight W stays frozen. LoRA adds <b>x·A·B · α/r</b>, with A (d<sub>in</sub> × r) and B (r × d<sub>out</sub>). Grey = frozen, coral = trained. Move the rank slider.</p></div>
+          <div class="plc"><h3>3 · How small?</h3><p>The notebook puts LoRA on W<sub>Q</sub>, W<sub>K</sub>, W<sub>V</sub>, W<sub>O</sub> of every layer. With r = 4 on GPT-2 small that's about <b>1.9M</b> trainable numbers: ~1.5% of 124M.</p></div>
+          <div class="plc"><h3>4 · B starts at zero</h3><p>A is random, <b>B = 0</b>, so x·A·B = 0: at step 0 the model is exactly the original.</p></div>
+          <div class="plc"><h3>5 · The reference for free</h3><p>Switch the LoRA hooks off and you have the original model back. So <code>self.ref_model = self.model</code>: one copy in memory.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+<script>
+// shared helpers: tabs, placards with keyboard, theme toggle
+function $(s, r) { return (r || document).querySelector(s); }
+function $$(s, r) { return Array.from((r || document).querySelectorAll(s)); }
+function el(tag, attrs, html) { const e = document.createElement(tag); if (attrs) for (const k in attrs) { if (k === 'class') e.className = attrs[k]; else if (k === 'style') e.style.cssText = attrs[k]; else e.setAttribute(k, attrs[k]); } if (html != null) e.innerHTML = html; return e; }
+const SVGNS = 'http://www.w3.org/2000/svg';
+function sv(tag, attrs, text) { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; }
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function setupTabs(onChange) {
+  const btns = $$('.tabs button[data-tab]');
+  btns.forEach((b) => b.addEventListener('click', () => {
+    btns.forEach((x) => x.classList.toggle('on', x === b));
+    $$('section.tab').forEach((s) => s.classList.toggle('on', s.id === b.dataset.tab));
+    if (onChange) onChange(b.dataset.tab);
+  }));
+}
+// placards: container with .plc children; shows first n; returns controller
+function placards(root, onStep) {
+  const cards = $$('.plc', root);
+  const nav = el('div', { class: 'stepnav' });
+  const back = el('button', { class: 'btn ghost' }, '◀ Back');
+  const next = el('button', { class: 'btn' }, 'Next ▶');
+  const cnt = el('span', { class: 'cnt' });
+  nav.append(back, next, cnt);
+  root.prepend(nav);
+  let n = 1;
+  function render() {
+    cards.forEach((c, i) => { c.classList.toggle('show', i < n); c.classList.toggle('cur', i === n - 1); });
+    cnt.textContent = n + ' / ' + cards.length + '   (← → keys)';
+    back.disabled = n <= 1; next.disabled = n >= cards.length;
+    if (onStep) onStep(n);
+  }
+  back.onclick = () => { if (n > 1) { n--; render(); } };
+  next.onclick = () => { if (n < cards.length) { n++; render(); } };
+  render();
+  return { go(k) { n = Math.max(1, Math.min(cards.length, k)); render(); }, get n() { return n; }, root, next: () => next.onclick(), back: () => back.onclick() };
+}
+function keyNav(getCtl) {
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    const c = getCtl(); if (!c) return;
+    if (e.key === 'ArrowRight') { c.next(); e.preventDefault(); }
+    if (e.key === 'ArrowLeft') { c.back(); e.preventDefault(); }
+  });
+}
+function themeToggle() {
+  const b = el('button', { class: 'themebtn', title: 'Light / dark' }, '◐ theme');
+  b.onclick = () => {
+    const r = document.documentElement;
+    const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    r.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('tara-theme', r.dataset.theme); } catch (e) { }
+    window.dispatchEvent(new Event('themechange'));
+  };
+  try { const t = localStorage.getItem('tara-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) { }
+  document.body.append(b);
+}
+function fmt(x, d) { d = d == null ? 2 : d; const s = (Math.abs(x) < 0.005 && d <= 2) ? (0).toFixed(d) : x.toFixed(d); return (x > 0.0049 ? '+' : '') + s; }
+function rng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
+
+</script>
+<script>
+const ANS = [
+  ['This is a list of the characters who appear in the series.', 1],
+  ['This is a guest post by Mark Boulter, Director of Research.', 1],
+  ['This is a rush transcript. Copy may not be in its final form.', 2],
+  ['This is the latest on the U.S. and Mexico.', 3],
+  ['This is a very important issue for all of us', 0],
+  ['This is an archived article and may be outdated.', 1],
+  ['This is a conversation between A (a.k.a. A-man) and B.', 4],
+  ['This is not going to happen. Not.... Not today.', 6],
+];
+let rw = ANS.map((a) => a[1]), selA = 2;
+function stats() { const n = rw.length, mu = rw.reduce((a, b) => a + b) / n; const sd = Math.sqrt(rw.reduce((a, b) => a + (b - mu) ** 2, 0) / (n - 1)); return { mu, sd, A: rw.map((r) => (r - mu) / (sd + 1e-5)) }; }
+function drawG() {
+  const { mu, sd, A } = stats();
+  const tb = $('#grp'); tb.innerHTML = '<tr><th style="text-align:left">answer</th><th>reward</th><th>advantage (r − mean) / std</th></tr>';
+  const teal = css('--teal'), coral = css('--coral');
+  ANS.forEach(([t], i) => {
+    const a = A[i], w = Math.min(100, Math.abs(a) * 45);
+    const bar = '<div style="display:flex;align-items:center;justify-content:center;gap:4px"><div style="width:110px;display:flex;justify-content:flex-end">' + (a < 0 ? '<div style="height:16px;width:' + w + 'px;background:' + coral + ';border-radius:3px"></div>' : '') + '</div><b style="min-width:3.2em">' + fmt(a) + '</b><div style="width:110px">' + (a > 0 ? '<div style="height:16px;width:' + w + 'px;background:' + teal + ';border-radius:3px"></div>' : '') + '</div></div>';
+    const tr = el('tr', { style: 'cursor:pointer' + (i === selA ? ';outline:3px solid var(--purple);outline-offset:-1px' : '') }, '<td style="text-align:left">' + t + '</td><td style="white-space:nowrap"><button class="btn ghost" data-m="' + i + '" style="padding:.1em .5em">−</button> <b>' + rw[i] + '</b> <button class="btn ghost" data-p="' + i + '" style="padding:.1em .5em">+</button></td><td>' + bar + '</td>');
+    tr.onclick = (e) => { if (e.target.dataset.m || e.target.dataset.p) return; selA = i; drawG(); };
+    tb.append(tr);
+  });
+  $$('button[data-m]').forEach((b) => (b.onclick = () => { rw[+b.dataset.m] = Math.max(0, rw[+b.dataset.m] - 1); drawG(); }));
+  $$('button[data-p]').forEach((b) => (b.onclick = () => { rw[+b.dataset.p] += 1; drawG(); }));
+  $('#gstats').innerHTML = '<span class="pill">group mean ' + mu.toFixed(2) + '</span> <span class="pill purple">std ' + sd.toFixed(2) + '</span>';
+  // token comparison
+  $('#selN').textContent = selA + 1;
+  const words = ANS[selA][0].replace(/^This is/, '').match(/\s*\S+/g) || [];
+  const n = words.length;
+  // critic-style: ideal forecast, credit where periods appear (raw scale)
+  const crit = words.map((w) => (w.match(/\./g) || []).length - mu / n);
+  const box = $('#tokcmp'); box.innerHTML = '';
+  const row = (label, vals, note) => {
+    const d = el('div', { style: 'margin:6px 0' }); d.append(el('div', { style: 'font-weight:700;font-size:.9rem' }, label + ' <span class="muted" style="font-weight:400">' + note + '</span>'));
+    const r = el('div', { style: 'display:flex;flex-wrap:wrap;gap:4px' });
+    words.forEach((w, i) => { const v = vals[i]; const c = v > 0.05 ? 'var(--teal)' : v < -0.05 ? 'var(--coral)' : 'var(--grey)'; r.append(el('div', { style: 'border:2px solid ' + c + ';border-radius:8px;padding:2px 6px;text-align:center' }, '<div style="white-space:pre">' + w.replace(/^\s/, '') + '</div><div style="font-weight:700;color:' + c + ';font-size:.85rem">' + fmt(v) + '</div>')); });
+    d.append(r); return d;
+  };
+  box.append(row('GRPO', words.map(() => A[selA]), 'same advantage on every token'));
+  box.append(row('with a critic (PPO-style)', crit, 'toy forecast: credit where periods appear'));
+}
+// LoRA
+const MD = { s: { d: 768, h: 12, dh: 64, L: 12, tot: 124e6, name: 'gpt2-small' }, m: { d: 1024, h: 16, dh: 64, L: 24, tot: 355e6, name: 'gpt2-medium' } };
+function drawL() {
+  const m = MD[$('#mdl').value], r = Math.pow(2, +$('#rk').value); $('#rkv').textContent = r;
+  const attn = m.h * (m.d * r + r * m.dh) * 3 + m.h * (m.dh * r + r * m.d);
+  const mlp = $('#mlp').checked ? (m.d * r + r * 4 * m.d) + (4 * m.d * r + r * m.d) : 0;
+  const tot = (attn + mlp) * m.L;
+  $('#lstats').innerHTML = '<span class="pill coral">trainable ' + (tot / 1e6).toFixed(2) + 'M</span> <span class="pill">frozen ' + (m.tot / 1e6).toFixed(0) + 'M</span> <span class="pill amber">' + (100 * tot / m.tot).toFixed(2) + '% of the model</span>';
+  const svg = $('#mat'); svg.innerHTML = '';
+  const S = 260 / m.d * 0.9, side = m.d * S, rr = Math.max(2, r * S * 2);
+  const ink = css('--ink'), mu = css('--muted'), grey = css('--grey'), coral = css('--coral');
+  svg.append(sv('rect', { x: 30, y: 30, width: side, height: side, fill: grey, opacity: 0.45, rx: 4 }));
+  svg.append(sv('text', { x: 30 + side / 2, y: 30 + side / 2, 'text-anchor': 'middle', 'font-size': 22, 'font-weight': 700, fill: ink }, 'W  (frozen)'));
+  svg.append(sv('text', { x: 30 + side / 2, y: 30 + side / 2 + 26, 'text-anchor': 'middle', 'font-size': 15, fill: mu }, m.d + ' × ' + m.d + ' = ' + (m.d * m.d / 1e6).toFixed(2) + 'M'));
+  svg.append(sv('text', { x: 330, y: 30 + side / 2 + 8, 'font-size': 34, fill: mu }, '+'));
+  svg.append(sv('rect', { x: 380, y: 30, width: rr, height: side, fill: coral, rx: 2 }));
+  svg.append(sv('text', { x: 380 + rr / 2, y: 22, 'text-anchor': 'middle', 'font-size': 16, 'font-weight': 700, fill: coral }, 'A'));
+  svg.append(sv('text', { x: 392 + rr, y: 30 + side / 2 + 8, 'font-size': 26, fill: mu }, '×'));
+  const bx = 430 + rr;
+  svg.append(sv('rect', { x: bx, y: 30, width: side, height: rr, fill: coral, rx: 2 }));
+  svg.append(sv('text', { x: bx + side / 2, y: 30 + rr + 22, 'text-anchor': 'middle', 'font-size': 16, 'font-weight': 700, fill: coral }, 'B   (starts at 0)'));
+  svg.append(sv('text', { x: bx, y: 30 + rr + 60, 'font-size': 16, fill: mu }, 'A: ' + m.d + ' × ' + r + '   B: ' + r + ' × ' + m.d));
+  svg.append(sv('text', { x: bx, y: 30 + rr + 86, 'font-size': 16, fill: mu }, '= ' + (2 * m.d * r / 1e3).toFixed(1) + 'k numbers vs ' + (m.d * m.d / 1e3).toFixed(0) + 'k in W'));
+  svg.append(sv('text', { x: 30, y: 320, 'font-size': 15, fill: mu }, 'Drawn to scale for one ' + m.d + ' × ' + m.d + ' matrix. LoRA output: x·A·B · α/r, with α = 32.'));
+}
+$('#mdl').onchange = drawL; $('#rk').oninput = drawL; $('#mlp').onchange = drawL;
+const P1 = placards($('#p1')), P2 = placards($('#p2'));
+let cur = 't1';
+setupTabs((t) => { cur = t; });
+keyNav(() => (cur === 't1' ? P1 : P2));
+themeToggle();
+window.addEventListener('themechange', () => { drawG(); drawL(); });
+drawG(); drawL();
+</script>
+
+</body>
+</html>
